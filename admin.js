@@ -676,7 +676,7 @@
       renderRequests();
       renderAdminTools();
     }).catch(function (error) {
-      setAlert("error", error.message + " Mostrando datos demo mientras se recupera la conexion.");
+      setAlert("error", error.message + " Mostrando datos locales mientras se recupera la conexion.");
       renderStats();
       renderOperations();
       renderRequests();
@@ -1107,7 +1107,7 @@
     }).catch(function (error) {
       state.gallery = DEMO_GALLERY_ITEMS.slice();
       renderGalleryManager();
-      setAlert("error", error.message + " Mostrando galeria demo mientras se recupera la conexion.");
+      setAlert("error", error.message + " Mostrando galeria local mientras se recupera la conexion.");
     });
   }
 
@@ -1497,7 +1497,7 @@
         { Autor: "Equipo", Timestamp: summary.timestamp, Nota: "Confirmar horario antes de visitar el local." }
       ] : [],
       history: [
-        { Accion: "Consulta creada", Timestamp: summary.timestamp, Usuario: "Sistema", Detalle: "Registro demo inicial." }
+        { Accion: "Consulta creada", Timestamp: summary.timestamp, Usuario: "Sistema", Detalle: "Registro inicial." }
       ],
       quote: quote,
       approval: {},
@@ -1533,7 +1533,7 @@
       if (!fallback) {
         setAlert("error", error.message);
       } else {
-        setAlert("error", error.message + " Mostrando ficha demo mientras se recupera la conexion.");
+        setAlert("error", error.message + " Mostrando ficha local mientras se recupera la conexion.");
       }
     });
   }
