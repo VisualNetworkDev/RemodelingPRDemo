@@ -73,6 +73,53 @@
     }
   ];
 
+  var DEMO_GALLERY_ITEMS = [
+    {
+      id: "GAL-10001",
+      title: "Sellado de techo residencial",
+      category: "roof",
+      type: "Despues",
+      imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80",
+      linkUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1600&q=80",
+      status: "Activo",
+      order: 1,
+      description: "Referencia visual para trabajos de techo y areas expuestas."
+    },
+    {
+      id: "GAL-10002",
+      title: "Estructura y cubierta exterior",
+      category: "roof",
+      type: "Proceso",
+      imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80",
+      linkUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1600&q=80",
+      status: "Activo",
+      order: 2,
+      description: "Trabajos exteriores con materiales y alcance visible."
+    },
+    {
+      id: "GAL-10003",
+      title: "Remodelacion interior limpia",
+      category: "interior",
+      type: "Despues",
+      imageUrl: "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80",
+      linkUrl: "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1600&q=80",
+      status: "Activo",
+      order: 3,
+      description: "Referencia de interiores terminados y presentacion residencial."
+    },
+    {
+      id: "GAL-10004",
+      title: "Mejora para local comercial",
+      category: "commercial",
+      type: "Despues",
+      imageUrl: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80",
+      linkUrl: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80",
+      status: "Activo",
+      order: 4,
+      description: "Espacios comerciales preparados para operar con mejor imagen."
+    }
+  ];
+
   var ADMIN_VIEWS = {
     dashboard: {
       eyebrow: "Operacion",
@@ -88,6 +135,11 @@
       eyebrow: "Propuestas",
       title: "Cotizaciones",
       subtitle: "Revisa proyectos con fotos, costos, deposito y envio de propuesta."
+    },
+    gallery: {
+      eyebrow: "Galeria",
+      title: "Galeria publica",
+      subtitle: "Sube, ordena, pausa o borra las fotos que aparecen en el index."
     },
     payments: {
       eyebrow: "Pagos",
@@ -112,6 +164,8 @@
   };
 
   var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
+  var MAX_GALLERY_PHOTO_BYTES = 4 * 1024 * 1024;
+  var GALLERY_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
   var DEFAULT_ADMIN_SETTINGS = {
     payments: {
@@ -154,6 +208,8 @@
 
   var state = {
     requests: [],
+    gallery: [],
+    galleryPhoto: null,
     stats: {},
     detail: null,
     adminSettings: loadAdminSettings(),
@@ -180,6 +236,13 @@
   var detailTitle = document.getElementById("detailTitle");
   var closeDetailBtn = document.getElementById("closeDetailBtn");
   var quoteConsole = document.getElementById("quoteConsole");
+  var galleryForm = document.getElementById("galleryForm");
+  var galleryFormTitle = document.getElementById("galleryFormTitle");
+  var galleryPhotoInput = document.getElementById("galleryPhotoInput");
+  var galleryPhotoPreview = document.getElementById("galleryPhotoPreview");
+  var clearGalleryFormBtn = document.getElementById("clearGalleryForm");
+  var galleryAdminGrid = document.getElementById("galleryAdminGrid");
+  var galleryTable = document.getElementById("galleryTable");
   var paymentSettingsForm = document.getElementById("paymentSettingsForm");
   var addPaymentMethodForm = document.getElementById("addPaymentMethodForm");
   var paymentMethodList = document.getElementById("paymentMethodList");
@@ -291,6 +354,36 @@
       return new Date(Number(match12[1]), Number(match12[2]) - 1, Number(match12[3]), hour, Number(match12[5]), 0).getTime();
     }
     return 0;
+  }
+
+  function readGalleryPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) {
+        resolve(null);
+        return;
+      }
+      if (GALLERY_PHOTO_TYPES.indexOf(file.type) === -1) {
+        reject(new Error("La foto debe ser JPG, PNG o WEBP."));
+        return;
+      }
+      if (file.size > MAX_GALLERY_PHOTO_BYTES) {
+        reject(new Error("La foto excede 4 MB."));
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve({
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+          dataUrl: reader.result
+        });
+      };
+      reader.onerror = function () {
+        reject(new Error("No se pudo leer la foto."));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function setAlert(type, message) {
@@ -440,6 +533,7 @@
 
   function renderAdminTools() {
     renderQuoteConsole();
+    renderGalleryManager();
     renderPaymentSettings();
     renderEmailSettings();
     renderUsers();
@@ -474,6 +568,106 @@
         '</div>' +
       '</article>';
     }).join("");
+  }
+
+  function categoryLabel(category) {
+    if (category === "roof") return "Techos";
+    if (category === "commercial") return "Comercial";
+    return "Interiores";
+  }
+
+  function loadGallery() {
+    return sendAction("listGallery", { includeInactive: true }).then(requireOk).then(function (data) {
+      state.gallery = Array.isArray(data.items) && data.items.length ? data.items : DEMO_GALLERY_ITEMS.slice();
+      renderGalleryManager();
+    }).catch(function (error) {
+      state.gallery = DEMO_GALLERY_ITEMS.slice();
+      renderGalleryManager();
+      setAlert("error", error.message + " Mostrando galeria demo mientras se recupera la conexion.");
+    });
+  }
+
+  function renderGalleryManager() {
+    var items = (state.gallery && state.gallery.length ? state.gallery : DEMO_GALLERY_ITEMS).slice().sort(function (a, b) {
+      return Number(a.order || 99) - Number(b.order || 99);
+    });
+
+    if (galleryAdminGrid) {
+      galleryAdminGrid.innerHTML = items.map(function (item) {
+        return '<article class="gallery-admin-card" data-gallery-id="' + esc(item.id) + '">' +
+          '<img src="' + esc(item.imageUrl || item.linkUrl) + '" alt="' + esc(item.title) + '">' +
+          '<div><span>' + esc(categoryLabel(item.category)) + ' - ' + esc(item.type || "Despues") + '</span>' +
+          '<strong>' + esc(item.title) + '</strong></div>' +
+        '</article>';
+      }).join("");
+    }
+
+    if (galleryTable) {
+      galleryTable.innerHTML = items.map(function (item) {
+        return '<tr data-gallery-id="' + esc(item.id) + '">' +
+          '<td data-label="Foto"><img class="table-thumb" src="' + esc(item.imageUrl || item.linkUrl) + '" alt="' + esc(item.title) + '"></td>' +
+          '<td data-label="Titulo"><strong>' + esc(item.title) + '</strong><br><small>' + esc(item.description || "") + '</small></td>' +
+          '<td data-label="Categoria">' + esc(categoryLabel(item.category)) + '<br><small>' + esc(item.type || "") + '</small></td>' +
+          '<td data-label="Estado"><span class="status-pill ' + (item.status === "Activo" ? "ok" : "warn") + '">' + esc(item.status || "Activo") + '</span></td>' +
+          '<td data-label="Orden">' + esc(item.order || 99) + '</td>' +
+          '<td data-label="Acciones"><div class="row-actions">' +
+            '<button class="btn secondary small" type="button" data-edit-gallery>Editar</button>' +
+            '<button class="btn secondary small" type="button" data-toggle-gallery>' + (item.status === "Activo" ? "Pausar" : "Activar") + '</button>' +
+            '<button class="btn danger small" type="button" data-delete-gallery>Borrar</button>' +
+          '</div></td>' +
+        '</tr>';
+      }).join("");
+    }
+  }
+
+  function clearGalleryForm() {
+    if (!galleryForm) return;
+    galleryForm.reset();
+    galleryForm.elements.id.value = "";
+    galleryForm.elements.imageUrl.value = "";
+    galleryForm.elements.linkUrl.value = "";
+    galleryForm.elements.order.value = "99";
+    state.galleryPhoto = null;
+    if (galleryPhotoInput) galleryPhotoInput.value = "";
+    if (galleryPhotoPreview) galleryPhotoPreview.innerHTML = "";
+    if (galleryFormTitle) galleryFormTitle.textContent = "Agregar foto";
+  }
+
+  function fillGalleryForm(itemId) {
+    if (!galleryForm) return;
+    var item = state.gallery.filter(function (entry) { return entry.id === itemId; })[0];
+    if (!item) return;
+    galleryForm.elements.id.value = item.id || "";
+    galleryForm.elements.imageUrl.value = item.imageUrl || "";
+    galleryForm.elements.linkUrl.value = item.linkUrl || item.imageUrl || "";
+    galleryForm.elements.title.value = item.title || "";
+    galleryForm.elements.category.value = item.category || "interior";
+    galleryForm.elements.type.value = item.type || "Despues";
+    galleryForm.elements.order.value = item.order || 99;
+    galleryForm.elements.status.value = item.status || "Activo";
+    galleryForm.elements.description.value = item.description || "";
+    state.galleryPhoto = null;
+    if (galleryPhotoInput) galleryPhotoInput.value = "";
+    if (galleryPhotoPreview) {
+      galleryPhotoPreview.innerHTML = '<img src="' + esc(item.imageUrl || item.linkUrl) + '" alt="' + esc(item.title) + '"><span>Foto actual</span>';
+    }
+    if (galleryFormTitle) galleryFormTitle.textContent = "Editar foto";
+  }
+
+  function galleryPayload() {
+    var data = new FormData(galleryForm);
+    return {
+      id: String(data.get("id") || "").trim(),
+      title: String(data.get("title") || "").trim(),
+      category: String(data.get("category") || "interior"),
+      type: String(data.get("type") || "Despues"),
+      status: String(data.get("status") || "Activo"),
+      order: data.get("order"),
+      description: String(data.get("description") || "").trim(),
+      imageUrl: String(data.get("imageUrl") || "").trim(),
+      linkUrl: String(data.get("linkUrl") || "").trim(),
+      photo: state.galleryPhoto
+    };
   }
 
   function fillForm(form, values) {
@@ -1135,6 +1329,89 @@
     setAdminView("dashboard");
   }
 
+  function bindGalleryTools() {
+    if (clearGalleryFormBtn) clearGalleryFormBtn.addEventListener("click", clearGalleryForm);
+
+    if (galleryPhotoInput) {
+      galleryPhotoInput.addEventListener("change", function () {
+        var file = galleryPhotoInput.files && galleryPhotoInput.files[0];
+        readGalleryPhoto(file).then(function (photo) {
+          state.galleryPhoto = photo;
+          if (galleryPhotoPreview && photo) {
+            galleryPhotoPreview.innerHTML = '<img src="' + esc(photo.dataUrl) + '" alt="Vista previa"><span>Foto lista para guardar</span>';
+          }
+          clearAlert();
+        }).catch(function (error) {
+          state.galleryPhoto = null;
+          galleryPhotoInput.value = "";
+          if (galleryPhotoPreview) galleryPhotoPreview.innerHTML = "";
+          setAlert("error", error.message);
+        });
+      });
+    }
+
+    if (galleryForm) {
+      galleryForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var payload = galleryPayload();
+        if (!payload.title) {
+          setAlert("error", "Titulo de foto requerido.");
+          return;
+        }
+        if (!payload.photo && !payload.imageUrl) {
+          setAlert("error", "Sube una foto antes de guardar.");
+          return;
+        }
+        sendAction("upsertGalleryItem", payload).then(requireOk).then(function () {
+          clearGalleryForm();
+          setAlert("success", "Foto de galeria guardada.");
+          return loadGallery();
+        }).catch(function (error) {
+          setAlert("error", error.message);
+        });
+      });
+    }
+
+    if (galleryTable) {
+      galleryTable.addEventListener("click", function (event) {
+        var row = event.target.closest("[data-gallery-id]");
+        if (!row) return;
+        var itemId = row.getAttribute("data-gallery-id");
+        var item = state.gallery.filter(function (entry) { return entry.id === itemId; })[0];
+        if (!item) return;
+
+        if (event.target.closest("[data-edit-gallery]")) {
+          fillGalleryForm(itemId);
+          return;
+        }
+
+        if (event.target.closest("[data-toggle-gallery]")) {
+          var payload = Object.assign({}, item, {
+            status: item.status === "Activo" ? "Pausado" : "Activo",
+            imageUrl: item.imageUrl || item.linkUrl
+          });
+          sendAction("upsertGalleryItem", payload).then(requireOk).then(function () {
+            setAlert("success", "Estado de foto actualizado.");
+            return loadGallery();
+          }).catch(function (error) {
+            setAlert("error", error.message);
+          });
+          return;
+        }
+
+        if (event.target.closest("[data-delete-gallery]")) {
+          sendAction("deleteGalleryItem", { id: itemId }).then(requireOk).then(function () {
+            if (galleryForm && galleryForm.elements.id.value === itemId) clearGalleryForm();
+            setAlert("success", "Foto borrada de la galeria.");
+            return loadGallery();
+          }).catch(function (error) {
+            setAlert("error", error.message);
+          });
+        }
+      });
+    }
+  }
+
   function bindPaymentSettings() {
     if (paymentSettingsForm) {
       paymentSettingsForm.addEventListener("submit", function (event) {
@@ -1283,6 +1560,7 @@
   }
 
   function bindAdminTools() {
+    bindGalleryTools();
     bindPaymentSettings();
     bindEmailSettings();
     bindUsers();
@@ -1325,6 +1603,7 @@
     bindEvents();
     bindAdminTools();
     renderPreviewDashboard();
+    loadGallery();
     loadServices().then(loadDashboard);
   }
 

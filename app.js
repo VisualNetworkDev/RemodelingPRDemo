@@ -13,6 +13,7 @@
   var photoPreview = document.getElementById("photoPreview");
   var formAlert = document.getElementById("formAlert");
   var submitBtn = document.getElementById("submitBtn");
+  var galleryGrid = document.getElementById("galleryGrid");
 
   function appSections() {
     return Array.prototype.slice.call(document.querySelectorAll("[data-app-section]"));
@@ -91,6 +92,10 @@
         message: "No se pudo completar el envio. Intentalo nuevamente en unos minutos."
       };
     });
+  }
+
+  function publicAction(action, payload) {
+    return submitEvaluation(action, payload);
   }
 
   function fileToDataUrl(file) {
@@ -305,17 +310,61 @@
 
   function bindGalleryFilters() {
     var buttons = document.querySelectorAll("[data-gallery]");
-    var cards = document.querySelectorAll("[data-gallery-item]");
     buttons.forEach(function (button) {
       button.addEventListener("click", function () {
         var filter = button.getAttribute("data-gallery");
         buttons.forEach(function (item) { item.classList.toggle("active", item === button); });
-        cards.forEach(function (card) {
+        document.querySelectorAll("[data-gallery-item]").forEach(function (card) {
           var match = filter === "all" || card.getAttribute("data-gallery-item") === filter;
           card.classList.toggle("is-hidden", !match);
         });
       });
     });
+  }
+
+  function activeGalleryFilter() {
+    var active = document.querySelector("[data-gallery].active");
+    return active ? active.getAttribute("data-gallery") : "all";
+  }
+
+  function renderGallery(items) {
+    if (!galleryGrid || !items || !items.length) return;
+    galleryGrid.innerHTML = items.map(function (item) {
+      var category = item.category || "interior";
+      var title = item.title || "Proyecto completado";
+      var description = item.description || item.type || "Trabajo realizado";
+      var imageUrl = item.imageUrl || item.linkUrl || "";
+      return '<article class="proof-card" data-gallery-item="' + escapeAttr(category) + '">' +
+        '<img src="' + escapeAttr(imageUrl) + '" alt="' + escapeAttr(title) + '" loading="lazy">' +
+        '<div><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(description) + '</span></div>' +
+      '</article>';
+    }).join("");
+    var filter = activeGalleryFilter();
+    document.querySelectorAll("[data-gallery-item]").forEach(function (card) {
+      var match = filter === "all" || card.getAttribute("data-gallery-item") === filter;
+      card.classList.toggle("is-hidden", !match);
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value === undefined || value === null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value);
+  }
+
+  function loadGallery() {
+    if (!galleryGrid) return;
+    publicAction("listGallery", { publicOnly: true }).then(function (response) {
+      if (!response || !response.ok || !response.data || !Array.isArray(response.data.items)) return;
+      renderGallery(response.data.items);
+    }).catch(function () {});
   }
 
   function setMinimumDate() {
@@ -334,5 +383,6 @@
   bindServiceButtons();
   bindServiceFilters();
   bindGalleryFilters();
+  loadGallery();
   setMinimumDate();
 })();

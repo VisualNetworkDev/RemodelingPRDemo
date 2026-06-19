@@ -69,6 +69,10 @@ for (const marker of ["app-console", "data-app-section", "feature-device", "serv
   if (!indexHtml.includes(marker)) throw new Error(`Public index missing redesign marker ${marker}`);
 }
 
+if (!indexHtml.includes("galleryGrid") || !appJs.includes("listGallery")) {
+  throw new Error("Public index must load gallery from the managed backend gallery.");
+}
+
 if ((indexHtml.match(/data-app-section=/g) || []).length < 6) {
   throw new Error("Public index must use app sections instead of one long scrolling page.");
 }
@@ -81,15 +85,15 @@ for (const action of ["listRequests", "getRequest", "updateStatus", "addInternal
   if (!adminJs.includes(action)) throw new Error(`Admin app missing action ${action}`);
 }
 
-for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
+for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "galleryForm", "galleryPhotoInput", "galleryTable", "galleryAdminGrid", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
   if (!adminHtml.includes(marker)) throw new Error(`Admin app missing operations marker ${marker}`);
 }
 
-if ((adminHtml.match(/data-admin-panel=/g) || []).length < 7) {
-  throw new Error("Admin must use separated app sections for dashboard, requests, quotes, payments, emails, users, and settings.");
+if ((adminHtml.match(/data-admin-panel=/g) || []).length < 8) {
+  throw new Error("Admin must use separated app sections for dashboard, requests, quotes, gallery, payments, emails, users, and settings.");
 }
 
-for (const marker of ["bindAdminNavigation", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-user", "data-delete-payment", "formatTimestamp"]) {
+for (const marker of ["bindAdminNavigation", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
 }
 

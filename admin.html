@@ -21,6 +21,7 @@
       <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
       <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
       <button class="admin-tab" type="button" data-admin-tab="quotes">Cotizaciones</button>
+      <button class="admin-tab" type="button" data-admin-tab="gallery">Galeria</button>
       <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
       <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
       <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
@@ -34,6 +35,7 @@
     <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
     <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
     <button class="admin-tab" type="button" data-admin-tab="quotes">Cotiza</button>
+    <button class="admin-tab" type="button" data-admin-tab="gallery">Galeria</button>
     <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
     <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
     <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
@@ -67,6 +69,11 @@
           <span>Cotizaciones</span>
           <strong>Propuestas con fotos, materiales, labor y opciones de pago.</strong>
           <button class="btn secondary small" type="button" data-admin-tab="quotes">Gestionar</button>
+        </article>
+        <article class="admin-module-card">
+          <span>Galeria</span>
+          <strong>Fotos publicas del index con categorias y orden editable.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="gallery">Actualizar</button>
         </article>
         <article class="admin-module-card">
           <span>Pagos</span>
@@ -173,6 +180,89 @@
         <button class="btn secondary small" type="button" data-admin-tab="requests">Abrir consultas</button>
       </div>
       <div id="quoteConsole" class="quote-console-grid"></div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="gallery" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Galeria publica</p>
+          <h2>Fotos que aparecen en el index</h2>
+        </div>
+      </div>
+      <div class="admin-two-col">
+        <form id="galleryForm" class="admin-card admin-settings-form">
+          <input type="hidden" name="id">
+          <input type="hidden" name="imageUrl">
+          <input type="hidden" name="linkUrl">
+          <h3 id="galleryFormTitle">Agregar foto</h3>
+          <div class="form-grid">
+            <label>Titulo
+              <input name="title" required>
+            </label>
+            <label>Categoria
+              <select name="category" required>
+                <option value="roof">Techos</option>
+                <option value="interior">Interiores</option>
+                <option value="commercial">Comercial</option>
+              </select>
+            </label>
+            <label>Tipo
+              <select name="type">
+                <option>Despues</option>
+                <option>Antes</option>
+                <option>Proceso</option>
+                <option>Detalle</option>
+              </select>
+            </label>
+            <label>Orden
+              <input name="order" type="number" min="1" step="1" value="99">
+            </label>
+            <label>Estado
+              <select name="status">
+                <option>Activo</option>
+                <option>Pausado</option>
+              </select>
+            </label>
+            <label class="wide">Descripcion
+              <textarea name="description" rows="3"></textarea>
+            </label>
+            <label class="wide file-field">Subir foto
+              <input id="galleryPhotoInput" name="photo" type="file" accept="image/jpeg,image/png,image/webp">
+              <span class="field-help">JPG, PNG o WEBP. Hasta 4 MB.</span>
+            </label>
+          </div>
+          <div id="galleryPhotoPreview" class="admin-gallery-preview"></div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar foto</button>
+            <button id="clearGalleryForm" class="btn secondary" type="button">Limpiar</button>
+          </div>
+        </form>
+
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Fotos publicadas</p>
+              <h3>Contenido de galeria</h3>
+            </div>
+          </div>
+          <div id="galleryAdminGrid" class="gallery-admin-grid"></div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Foto</th>
+                  <th>Titulo</th>
+                  <th>Categoria</th>
+                  <th>Estado</th>
+                  <th>Orden</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="galleryTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </section>
 
     <section class="admin-view" data-admin-panel="payments" hidden>
