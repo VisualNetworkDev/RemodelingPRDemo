@@ -21,7 +21,9 @@
       <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
       <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
       <button class="admin-tab" type="button" data-admin-tab="quotes">Cotizaciones</button>
+      <button class="admin-tab" type="button" data-admin-tab="schedule">Agenda</button>
       <button class="admin-tab" type="button" data-admin-tab="gallery">Galeria</button>
+      <button class="admin-tab" type="button" data-admin-tab="reports">Reportes</button>
       <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
       <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
       <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
@@ -35,10 +37,13 @@
     <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
     <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
     <button class="admin-tab" type="button" data-admin-tab="quotes">Cotiza</button>
+    <button class="admin-tab" type="button" data-admin-tab="schedule">Agenda</button>
     <button class="admin-tab" type="button" data-admin-tab="gallery">Galeria</button>
+    <button class="admin-tab" type="button" data-admin-tab="reports">Reportes</button>
     <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
     <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
     <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
+    <button class="admin-tab" type="button" data-admin-tab="settings">Ajustes</button>
   </nav>
 
   <main id="adminShell" class="admin-workspace">
@@ -50,6 +55,7 @@
       </div>
       <div class="admin-command-actions">
         <button class="btn secondary small" type="button" data-admin-tab="requests">Abrir bandeja</button>
+        <button class="btn secondary small" type="button" data-admin-tab="schedule">Ver agenda</button>
         <button class="btn primary small" type="button" data-admin-tab="quotes">Preparar cotizacion</button>
       </div>
     </section>
@@ -71,9 +77,19 @@
           <button class="btn secondary small" type="button" data-admin-tab="quotes">Gestionar</button>
         </article>
         <article class="admin-module-card">
+          <span>Agenda</span>
+          <strong>Visitas, seguimientos, responsables y prioridad por proyecto.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="schedule">Programar</button>
+        </article>
+        <article class="admin-module-card">
           <span>Galeria</span>
           <strong>Fotos publicas del index con categorias y orden editable.</strong>
           <button class="btn secondary small" type="button" data-admin-tab="gallery">Actualizar</button>
+        </article>
+        <article class="admin-module-card">
+          <span>Reportes</span>
+          <strong>Resumen de pipeline, servicios, ingresos estimados y logs.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="reports">Ver</button>
         </article>
         <article class="admin-module-card">
           <span>Pagos</span>
@@ -182,6 +198,96 @@
       <div id="quoteConsole" class="quote-console-grid"></div>
     </section>
 
+    <section class="admin-view" data-admin-panel="schedule" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Agenda</p>
+          <h2>Visitas, seguimiento y ruta de trabajo</h2>
+        </div>
+        <button class="btn secondary small" type="button" data-admin-tab="requests">Abrir consultas</button>
+      </div>
+      <div class="admin-two-col schedule-layout">
+        <form id="scheduleForm" class="admin-card admin-settings-form">
+          <input type="hidden" name="eventId">
+          <h3 id="scheduleFormTitle">Programar evento</h3>
+          <div class="form-grid">
+            <label>Tipo
+              <select name="type">
+                <option>Evaluacion</option>
+                <option>Seguimiento</option>
+                <option>Inicio de trabajo</option>
+                <option>Inspeccion</option>
+                <option>Entrega</option>
+              </select>
+            </label>
+            <label>Consulta relacionada
+              <select id="scheduleRequest" name="requestId">
+                <option value="">Sin consulta</option>
+              </select>
+            </label>
+            <label>Fecha
+              <input name="date" type="date" required>
+            </label>
+            <label>Hora
+              <input name="time" type="time" required>
+            </label>
+            <label>Responsable
+              <select id="scheduleAssignee" name="assignee"></select>
+            </label>
+            <label>Estado
+              <select name="status">
+                <option>Programado</option>
+                <option>Confirmado</option>
+                <option>En progreso</option>
+                <option>Completado</option>
+                <option>Cancelado</option>
+              </select>
+            </label>
+            <label>Prioridad
+              <select name="priority">
+                <option>Normal</option>
+                <option>Alta</option>
+                <option>Baja</option>
+              </select>
+            </label>
+            <label class="wide">Notas internas
+              <textarea name="notes" rows="4" placeholder="Direccion, materiales a verificar, persona que atiende o proximo paso."></textarea>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar agenda</button>
+            <button id="clearScheduleForm" class="btn secondary" type="button">Limpiar</button>
+          </div>
+        </form>
+
+        <section class="admin-card schedule-board-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Semana operativa</p>
+              <h3>Calendario de proximos pasos</h3>
+            </div>
+            <button id="exportScheduleCsv" class="btn secondary small" type="button">Exportar CSV</button>
+          </div>
+          <div id="scheduleWeek" class="schedule-week"></div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Proyecto</th>
+                  <th>Tipo</th>
+                  <th>Responsable</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <section class="admin-view" data-admin-panel="gallery" hidden>
       <div class="admin-panel-head">
         <div>
@@ -263,6 +369,60 @@
           </div>
         </section>
       </div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="reports" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Reportes</p>
+          <h2>Lectura rapida del negocio</h2>
+        </div>
+        <button id="exportReportCsv" class="btn secondary small" type="button">Exportar CSV</button>
+      </div>
+      <div id="reportMetrics" class="stat-grid"></div>
+      <div class="admin-two-col reports-layout">
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Servicios</p>
+              <h3>Demanda y valor estimado</h3>
+            </div>
+          </div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Servicio</th>
+                  <th>Consultas</th>
+                  <th>Cotizado</th>
+                  <th>Promedio</th>
+                </tr>
+              </thead>
+              <tbody id="reportServiceTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Estados</p>
+              <h3>Pipeline por fase</h3>
+            </div>
+          </div>
+          <div id="reportStatusList" class="report-status-list"></div>
+        </section>
+      </div>
+      <section class="admin-card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Logs</p>
+            <h3>Actividad del panel</h3>
+          </div>
+          <button id="clearActivityLog" class="btn danger small" type="button">Borrar logs</button>
+        </div>
+        <div id="activityLogList" class="activity-log-list"></div>
+      </section>
     </section>
 
     <section class="admin-view" data-admin-panel="payments" hidden>

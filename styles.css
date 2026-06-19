@@ -2914,7 +2914,8 @@ th {
   bottom: 12px;
   z-index: 40;
   display: none;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(78px, 1fr);
   gap: 6px;
   border: 1px solid rgba(21, 21, 21, .12);
   border-radius: 8px;
@@ -2922,6 +2923,8 @@ th {
   background: rgba(255, 255, 255, .94);
   box-shadow: 0 18px 44px rgba(21, 21, 21, .18);
   backdrop-filter: blur(18px);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .admin-mobile-dock .admin-tab {
@@ -2929,6 +2932,134 @@ th {
   padding: 8px 4px;
   background: var(--soft);
   font-size: 10px;
+}
+
+.schedule-layout .admin-card,
+.reports-layout .admin-card {
+  min-width: 0;
+}
+
+.schedule-board-card {
+  display: grid;
+  gap: 14px;
+}
+
+.schedule-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-day {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 188px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfd;
+}
+
+.schedule-day strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.schedule-day em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.schedule-event {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid rgba(21, 21, 21, .08);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.schedule-event.is-derived {
+  border-color: rgba(244, 197, 66, .5);
+  background: #fff9e9;
+}
+
+.schedule-event span,
+.schedule-event small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.schedule-event b {
+  font-size: 13px;
+}
+
+.report-status-list,
+.activity-log-list {
+  display: grid;
+  gap: 10px;
+}
+
+.report-status-row {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfd;
+}
+
+.report-status-row div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.report-status-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.report-status-row i {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), #1f7a5d);
+}
+
+.activity-log-item {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfd;
+}
+
+.activity-log-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.activity-log-item strong {
+  color: var(--ink);
+}
+
+.activity-log-item p {
+  margin: 0;
+  color: #4b5561;
+  font-size: 14px;
 }
 
 @keyframes adminFade {
@@ -2948,6 +3079,10 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .schedule-week {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .admin-two-col {
     grid-template-columns: 1fr;
   }
@@ -2960,6 +3095,10 @@ th {
 
   .admin-mobile-dock {
     display: grid;
+  }
+
+  .schedule-week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-command-bar {
@@ -2981,6 +3120,7 @@ th {
   .admin-module-grid,
   .quote-console-grid,
   .gallery-admin-grid,
+  .schedule-week,
   .settings-split,
   .permission-picker {
     grid-template-columns: 1fr;

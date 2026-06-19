@@ -89,15 +89,15 @@ for (const action of ["listRequests", "getRequest", "updateStatus", "addInternal
   if (!adminJs.includes(action)) throw new Error(`Admin app missing action ${action}`);
 }
 
-for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "galleryForm", "galleryPhotoInput", "galleryTable", "galleryAdminGrid", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
+for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "scheduleForm", "scheduleWeek", "scheduleTable", "reportMetrics", "activityLogList", "galleryForm", "galleryPhotoInput", "galleryTable", "galleryAdminGrid", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
   if (!adminHtml.includes(marker)) throw new Error(`Admin app missing operations marker ${marker}`);
 }
 
-if ((adminHtml.match(/data-admin-panel=/g) || []).length < 8) {
-  throw new Error("Admin must use separated app sections for dashboard, requests, quotes, gallery, payments, emails, users, and settings.");
+if ((adminHtml.match(/data-admin-panel=/g) || []).length < 10) {
+  throw new Error("Admin must use separated app sections for dashboard, requests, quotes, schedule, gallery, reports, payments, emails, users, and settings.");
 }
 
-for (const marker of ["bindAdminNavigation", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
+for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
 }
 

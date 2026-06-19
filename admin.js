@@ -34,6 +34,7 @@
       email: "luz@example.com",
       pueblo: "Carolina",
       servicio: "Remodelacion interior",
+      fechaPreferida: "2026-07-02",
       estado: "Evaluacion programada",
       totalCotizado: 0,
       fotosUrls: [
@@ -49,6 +50,7 @@
       email: "carlos@example.com",
       pueblo: "Caguas",
       servicio: "Pintura residencial y comercial",
+      fechaPreferida: "2026-06-27",
       estado: "Cotizacion enviada",
       totalCotizado: 1850,
       fotosUrls: [
@@ -64,6 +66,7 @@
       email: "mariana@example.com",
       pueblo: "Bayamon",
       servicio: "Sellado de techos",
+      fechaPreferida: "2026-06-24",
       estado: "Pendiente",
       totalCotizado: 0,
       fotosUrls: [
@@ -136,10 +139,20 @@
       title: "Cotizaciones",
       subtitle: "Revisa proyectos con fotos, costos, deposito y envio de propuesta."
     },
+    schedule: {
+      eyebrow: "Agenda",
+      title: "Agenda operativa",
+      subtitle: "Organiza evaluaciones, seguimientos, responsables y proximos pasos por proyecto."
+    },
     gallery: {
       eyebrow: "Galeria",
       title: "Galeria publica",
       subtitle: "Sube, ordena, pausa o borra las fotos que aparecen en el index."
+    },
+    reports: {
+      eyebrow: "Reportes",
+      title: "Reportes y logs",
+      subtitle: "Revisa demanda, valor cotizado, pipeline y actividad reciente del panel."
     },
     payments: {
       eyebrow: "Pagos",
@@ -164,6 +177,8 @@
   };
 
   var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
+  var ADMIN_SCHEDULE_KEY = "atlas-remodeling-schedule-v1";
+  var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
   var MAX_GALLERY_PHOTO_BYTES = 4 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
   var GALLERY_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -214,6 +229,8 @@
     stats: {},
     detail: null,
     adminSettings: loadAdminSettings(),
+    schedule: loadScheduleEvents(),
+    activityLog: loadActivityLog(),
     adminView: "dashboard"
   };
 
@@ -232,6 +249,20 @@
   var serviceFilter = document.getElementById("serviceFilter");
   var sortOrder = document.getElementById("sortOrder");
   var refreshBtn = document.getElementById("refreshBtn");
+  var scheduleForm = document.getElementById("scheduleForm");
+  var scheduleFormTitle = document.getElementById("scheduleFormTitle");
+  var scheduleRequest = document.getElementById("scheduleRequest");
+  var scheduleAssignee = document.getElementById("scheduleAssignee");
+  var clearScheduleFormBtn = document.getElementById("clearScheduleForm");
+  var scheduleWeek = document.getElementById("scheduleWeek");
+  var scheduleTable = document.getElementById("scheduleTable");
+  var exportScheduleCsvBtn = document.getElementById("exportScheduleCsv");
+  var reportMetrics = document.getElementById("reportMetrics");
+  var reportServiceTable = document.getElementById("reportServiceTable");
+  var reportStatusList = document.getElementById("reportStatusList");
+  var activityLogList = document.getElementById("activityLogList");
+  var exportReportCsvBtn = document.getElementById("exportReportCsv");
+  var clearActivityLogBtn = document.getElementById("clearActivityLog");
   var detailModal = document.getElementById("detailModal");
   var detailBody = document.getElementById("detailBody");
   var detailTitle = document.getElementById("detailTitle");
@@ -287,6 +318,105 @@
 
   function saveAdminSettings() {
     localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(state.adminSettings));
+  }
+
+  function readStoredArray(key) {
+    try {
+      var value = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(value) ? value : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function loadScheduleEvents() {
+    return readStoredArray(ADMIN_SCHEDULE_KEY);
+  }
+
+  function saveScheduleEvents() {
+    localStorage.setItem(ADMIN_SCHEDULE_KEY, JSON.stringify(state.schedule || []));
+  }
+
+  function loadActivityLog() {
+    return readStoredArray(ADMIN_ACTIVITY_LOG_KEY);
+  }
+
+  function saveActivityLog() {
+    localStorage.setItem(ADMIN_ACTIVITY_LOG_KEY, JSON.stringify(state.activityLog || []));
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function todayIso() {
+    var now = new Date();
+    return now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+  }
+
+  function localTimestamp() {
+    var now = new Date();
+    var suffix = now.getHours() >= 12 ? "PM" : "AM";
+    var hour = now.getHours() % 12 || 12;
+    return now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate()) + " " + hour + ":" + pad2(now.getMinutes()) + " " + suffix;
+  }
+
+  function formatTime12(value) {
+    var text = String(value || "").trim();
+    if (!text) return "";
+    var match12 = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match12) return Number(match12[1]) + ":" + match12[2] + " " + match12[3].toUpperCase();
+    var match24 = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!match24) return text;
+    var hour = Number(match24[1]);
+    var suffix = hour >= 12 ? "PM" : "AM";
+    return (hour % 12 || 12) + ":" + match24[2] + " " + suffix;
+  }
+
+  function parseIsoDate(value) {
+    var text = String(value || "").trim();
+    var match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  function dateLabel(value) {
+    var date = parseIsoDate(value);
+    if (!date) return String(value || "");
+    var labels = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+    return labels[date.getDay()] + " " + pad2(date.getDate()) + "/" + pad2(date.getMonth() + 1);
+  }
+
+  function csvEscape(value) {
+    var text = String(value === undefined || value === null ? "" : value);
+    return '"' + text.replace(/"/g, '""') + '"';
+  }
+
+  function downloadCsv(filename, rows) {
+    var csv = rows.map(function (row) {
+      return row.map(csvEscape).join(",");
+    }).join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function logActivity(action, detail) {
+    state.activityLog = [{
+      id: "LOG-" + Date.now(),
+      timestamp: localTimestamp(),
+      action: action,
+      detail: detail || ""
+    }].concat(state.activityLog || []).slice(0, 120);
+    saveActivityLog();
+    renderActivityLog();
+    renderReports();
   }
 
   function nextId(prefix, rows) {
@@ -596,7 +726,9 @@
 
   function renderAdminTools() {
     renderQuoteConsole();
+    renderSchedule();
     renderGalleryManager();
+    renderReports();
     renderPaymentSettings();
     renderEmailSettings();
     renderUsers();
@@ -631,6 +763,329 @@
         '</div>' +
       '</article>';
     }).join("");
+  }
+
+  function requestById(requestId) {
+    return (state.requests || []).filter(function (request) { return request.id === requestId; })[0] || null;
+  }
+
+  function requestLabel(request) {
+    if (!request) return "Sin consulta";
+    return request.id + " - " + request.nombre + " - " + request.servicio;
+  }
+
+  function populateScheduleSelectors() {
+    if (scheduleRequest) {
+      var currentRequest = scheduleRequest.value;
+      scheduleRequest.innerHTML = '<option value="">Sin consulta</option>' + (state.requests || []).map(function (request) {
+        return '<option value="' + esc(request.id) + '">' + esc(requestLabel(request)) + '</option>';
+      }).join("");
+      scheduleRequest.value = currentRequest;
+    }
+    if (scheduleAssignee) {
+      var currentAssignee = scheduleAssignee.value;
+      var users = (state.adminSettings.users || []).filter(function (user) { return user.status !== "Pausado"; });
+      scheduleAssignee.innerHTML = users.map(function (user) {
+        return '<option value="' + esc(user.name) + '">' + esc(user.name + " - " + user.role) + '</option>';
+      }).join("") || '<option>Equipo</option>';
+      scheduleAssignee.value = currentAssignee || (users[0] && users[0].name) || "Equipo";
+    }
+  }
+
+  function preferredDateForRequest(request) {
+    var raw = request && (request.fechaPreferida || request.preferredDate || "");
+    var parsed = parseIsoDate(raw);
+    if (!parsed) return "";
+    return parsed.getFullYear() + "-" + pad2(parsed.getMonth() + 1) + "-" + pad2(parsed.getDate());
+  }
+
+  function derivedRequestSchedule() {
+    return (state.requests || []).filter(function (request) {
+      return ["Completado", "Cancelado"].indexOf(request.estado) === -1 && preferredDateForRequest(request);
+    }).map(function (request) {
+      var type = request.estado === "Cotizacion enviada" ? "Seguimiento" : "Evaluacion";
+      return {
+        id: "REQ-" + request.id,
+        requestId: request.id,
+        type: type,
+        date: preferredDateForRequest(request),
+        time: "09:00",
+        assignee: "Equipo",
+        status: request.estado === "Evaluacion programada" ? "Confirmado" : "Programado",
+        priority: request.urgencia || "Normal",
+        notes: "Fecha preferida enviada desde la consulta publica.",
+        derived: true
+      };
+    });
+  }
+
+  function allScheduleEvents() {
+    return (state.schedule || []).concat(derivedRequestSchedule()).sort(function (a, b) {
+      var left = String(a.date || "") + " " + String(a.time || "");
+      var right = String(b.date || "") + " " + String(b.time || "");
+      return left.localeCompare(right);
+    });
+  }
+
+  function weekDates() {
+    var start = parseIsoDate(todayIso()) || new Date();
+    return [0, 1, 2, 3, 4, 5, 6].map(function (offset) {
+      var date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset);
+      return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+    });
+  }
+
+  function eventProjectLabel(event) {
+    var request = requestById(event.requestId);
+    if (request) return request.nombre + " - " + request.pueblo;
+    return event.notes ? event.notes.slice(0, 42) : "Evento interno";
+  }
+
+  function eventStatusClass(status) {
+    if (status === "Completado" || status === "Confirmado") return "ok";
+    if (status === "Cancelado") return "danger";
+    if (status === "En progreso") return "";
+    return "warn";
+  }
+
+  function renderScheduleWeek(events) {
+    if (!scheduleWeek) return;
+    var dates = weekDates();
+    scheduleWeek.innerHTML = dates.map(function (date) {
+      var dayEvents = events.filter(function (event) { return event.date === date; });
+      return '<article class="schedule-day">' +
+        '<strong>' + esc(dateLabel(date)) + '</strong>' +
+        (dayEvents.length ? dayEvents.slice(0, 3).map(function (event) {
+          return '<button type="button" data-schedule-open="' + esc(event.id) + '" class="schedule-event ' + (event.derived ? "is-derived" : "") + '">' +
+            '<span>' + esc(formatTime12(event.time)) + '</span>' +
+            '<b>' + esc(event.type) + '</b>' +
+            '<small>' + esc(eventProjectLabel(event)) + '</small>' +
+          '</button>';
+        }).join("") : '<em>Libre</em>') +
+      '</article>';
+    }).join("");
+  }
+
+  function renderScheduleTable(events) {
+    if (!scheduleTable) return;
+    if (!events.length) {
+      scheduleTable.innerHTML = '<tr><td data-label="Agenda" colspan="6">' +
+        renderEmptyState("Agenda libre", "Programa evaluaciones, seguimientos o inicio de trabajo desde el formulario.") +
+        '</td></tr>';
+      return;
+    }
+    scheduleTable.innerHTML = events.map(function (event) {
+      var request = requestById(event.requestId);
+      return '<tr data-schedule-id="' + esc(event.id) + '">' +
+        '<td data-label="Fecha"><strong>' + esc(dateLabel(event.date)) + '</strong><br><small>' + esc(formatTime12(event.time)) + '</small></td>' +
+        '<td data-label="Proyecto">' + esc(request ? request.nombre : "Interno") + '<br><small>' + esc(request ? request.servicio + " - " + request.pueblo : event.notes || "") + '</small></td>' +
+        '<td data-label="Tipo">' + esc(event.type) + '<br><small>' + esc(event.priority || "Normal") + '</small></td>' +
+        '<td data-label="Responsable">' + esc(event.assignee || "Equipo") + '</td>' +
+        '<td data-label="Estado"><span class="status-pill ' + eventStatusClass(event.status) + '">' + esc(event.status || "Programado") + '</span></td>' +
+        '<td data-label="Acciones"><div class="row-actions">' +
+          (request ? '<button class="btn secondary small" type="button" data-open="' + esc(request.id) + '">Ficha</button>' : "") +
+          (event.derived ? '<span class="status-pill warn">Consulta</span>' :
+            '<button class="btn secondary small" type="button" data-edit-schedule>Editar</button>' +
+            '<button class="btn secondary small" type="button" data-complete-schedule>Completar</button>' +
+            '<button class="btn danger small" type="button" data-delete-schedule>Borrar</button>') +
+        '</div></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function renderSchedule() {
+    populateScheduleSelectors();
+    var events = allScheduleEvents();
+    renderScheduleWeek(events);
+    renderScheduleTable(events);
+    if (scheduleForm && !scheduleForm.elements.date.value) {
+      scheduleForm.elements.date.value = todayIso();
+      scheduleForm.elements.time.value = "09:00";
+    }
+  }
+
+  function clearScheduleForm() {
+    if (!scheduleForm) return;
+    scheduleForm.reset();
+    scheduleForm.elements.eventId.value = "";
+    scheduleForm.elements.date.value = todayIso();
+    scheduleForm.elements.time.value = "09:00";
+    if (scheduleFormTitle) scheduleFormTitle.textContent = "Programar evento";
+    populateScheduleSelectors();
+  }
+
+  function fillScheduleForm(eventId) {
+    if (!scheduleForm) return;
+    var event = (state.schedule || []).filter(function (item) { return item.id === eventId; })[0];
+    if (!event) return;
+    scheduleForm.elements.eventId.value = event.id;
+    scheduleForm.elements.type.value = event.type || "Evaluacion";
+    scheduleForm.elements.requestId.value = event.requestId || "";
+    scheduleForm.elements.date.value = event.date || todayIso();
+    scheduleForm.elements.time.value = event.time || "09:00";
+    scheduleForm.elements.assignee.value = event.assignee || "";
+    scheduleForm.elements.status.value = event.status || "Programado";
+    scheduleForm.elements.priority.value = event.priority || "Normal";
+    scheduleForm.elements.notes.value = event.notes || "";
+    if (scheduleFormTitle) scheduleFormTitle.textContent = "Editar evento";
+  }
+
+  function schedulePayload() {
+    var data = new FormData(scheduleForm);
+    return {
+      id: String(data.get("eventId") || "").trim() || nextId("SCH", state.schedule),
+      type: String(data.get("type") || "Evaluacion"),
+      requestId: String(data.get("requestId") || "").trim(),
+      date: String(data.get("date") || "").trim(),
+      time: String(data.get("time") || "09:00").trim(),
+      assignee: String(data.get("assignee") || "Equipo").trim(),
+      status: String(data.get("status") || "Programado"),
+      priority: String(data.get("priority") || "Normal"),
+      notes: String(data.get("notes") || "").trim(),
+      updatedAt: localTimestamp()
+    };
+  }
+
+  function reportSummary() {
+    var rows = state.requests || [];
+    var quoted = rows.filter(function (request) { return Number(request.totalCotizado || 0) > 0; });
+    var totalQuoted = quoted.reduce(function (sum, request) { return sum + Number(request.totalCotizado || 0); }, 0);
+    var won = rows.filter(function (request) {
+      return ["Aprobado", "En progreso", "Completado"].indexOf(request.estado) !== -1;
+    }).length;
+    return {
+      total: rows.length,
+      active: rows.filter(function (request) { return ["Completado", "Cancelado"].indexOf(request.estado) === -1; }).length,
+      quotedCount: quoted.length,
+      quotedTotal: totalQuoted,
+      averageQuote: quoted.length ? totalQuoted / quoted.length : 0,
+      conversion: rows.length ? Math.round((won / rows.length) * 100) : 0,
+      scheduleCount: allScheduleEvents().length
+    };
+  }
+
+  function renderReportMetrics(summary) {
+    if (!reportMetrics) return;
+    var cards = [
+      ["Consultas", summary.total],
+      ["Activas", summary.active],
+      ["Cotizadas", summary.quotedCount],
+      ["Valor cotizado", money(summary.quotedTotal)],
+      ["Promedio", money(summary.averageQuote)],
+      ["Conversion", summary.conversion + "%"],
+      ["Agenda", summary.scheduleCount]
+    ];
+    reportMetrics.innerHTML = cards.map(function (card) {
+      return '<article class="stat-card"><span>' + esc(card[0]) + '</span><strong>' + esc(card[1]) + '</strong></article>';
+    }).join("");
+  }
+
+  function renderReportServices() {
+    if (!reportServiceTable) return;
+    var byService = {};
+    (state.requests || []).forEach(function (request) {
+      var key = request.servicio || "Sin servicio";
+      if (!byService[key]) byService[key] = { count: 0, quoted: 0 };
+      byService[key].count += 1;
+      byService[key].quoted += Number(request.totalCotizado || 0);
+    });
+    var services = Object.keys(byService).sort(function (a, b) {
+      return byService[b].count - byService[a].count;
+    });
+    if (!services.length) {
+      reportServiceTable.innerHTML = '<tr><td data-label="Servicios" colspan="4">' + renderMiniEmpty("Sin datos de servicios.") + '</td></tr>';
+      return;
+    }
+    reportServiceTable.innerHTML = services.map(function (service) {
+      var row = byService[service];
+      return '<tr>' +
+        '<td data-label="Servicio"><strong>' + esc(service) + '</strong></td>' +
+        '<td data-label="Consultas">' + esc(row.count) + '</td>' +
+        '<td data-label="Cotizado">' + money(row.quoted) + '</td>' +
+        '<td data-label="Promedio">' + money(row.count ? row.quoted / row.count : 0) + '</td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function renderReportStatuses() {
+    if (!reportStatusList) return;
+    var counts = {};
+    (state.requests || []).forEach(function (request) {
+      counts[request.estado || "Pendiente"] = (counts[request.estado || "Pendiente"] || 0) + 1;
+    });
+    var max = Object.keys(counts).reduce(function (top, status) { return Math.max(top, counts[status]); }, 1);
+    reportStatusList.innerHTML = STATUSES.map(function (status) {
+      var count = counts[status] || 0;
+      var width = Math.max(8, Math.round((count / max) * 100));
+      return '<div class="report-status-row">' +
+        '<div><strong>' + esc(status) + '</strong><span>' + count + '</span></div>' +
+        '<i style="width:' + width + '%"></i>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderActivityLog() {
+    if (!activityLogList) return;
+    var logs = state.activityLog || [];
+    if (!logs.length) {
+      activityLogList.innerHTML = renderEmptyState("Sin actividad registrada", "Los cambios de agenda, usuarios, pagos, correos, galeria y cotizaciones apareceran aqui.");
+      return;
+    }
+    activityLogList.innerHTML = logs.slice(0, 40).map(function (log) {
+      return '<article class="activity-log-item">' +
+        '<span>' + esc(log.timestamp) + '</span>' +
+        '<strong>' + esc(log.action) + '</strong>' +
+        '<p>' + esc(log.detail || "") + '</p>' +
+      '</article>';
+    }).join("");
+  }
+
+  function renderReports() {
+    var summary = reportSummary();
+    renderReportMetrics(summary);
+    renderReportServices();
+    renderReportStatuses();
+    renderActivityLog();
+  }
+
+  function exportScheduleCsv() {
+    var rows = [["Fecha", "Hora", "Tipo", "Consulta", "Proyecto", "Responsable", "Estado", "Prioridad", "Notas"]];
+    allScheduleEvents().forEach(function (event) {
+      var request = requestById(event.requestId);
+      rows.push([
+        event.date,
+        formatTime12(event.time),
+        event.type,
+        event.requestId,
+        request ? request.nombre : "Interno",
+        event.assignee,
+        event.status,
+        event.priority,
+        event.notes
+      ]);
+    });
+    downloadCsv("agenda-atlas-remodeling.csv", rows);
+    logActivity("Agenda exportada", "Se exporto el calendario operativo en CSV.");
+  }
+
+  function exportReportCsv() {
+    var summary = reportSummary();
+    var rows = [
+      ["Metrica", "Valor"],
+      ["Consultas", summary.total],
+      ["Activas", summary.active],
+      ["Cotizadas", summary.quotedCount],
+      ["Valor cotizado", summary.quotedTotal],
+      ["Promedio cotizado", summary.averageQuote],
+      ["Conversion", summary.conversion + "%"],
+      [],
+      ["ID", "Fecha", "Cliente", "Servicio", "Pueblo", "Estado", "Total cotizado"]
+    ];
+    (state.requests || []).forEach(function (request) {
+      rows.push([request.id, request.timestamp, request.nombre, request.servicio, request.pueblo, request.estado, request.totalCotizado]);
+    });
+    downloadCsv("reporte-atlas-remodeling.csv", rows);
+    logActivity("Reporte exportado", "Se exporto el reporte operativo en CSV.");
   }
 
   function categoryLabel(category) {
@@ -1282,7 +1737,10 @@
         status: data.get("status"),
         notifyCustomer: data.get("notifyCustomer") === "on",
         message: data.get("message")
-      }).then(requireOk).then(refreshDetail).catch(function (error) {
+      }).then(requireOk).then(function () {
+        logActivity("Estado actualizado", requestId + " cambio a " + data.get("status") + ".");
+        return refreshDetail();
+      }).catch(function (error) {
         setAlert("error", error.message);
       });
     });
@@ -1293,7 +1751,10 @@
           requestId: requestId,
           status: button.getAttribute("data-quick-status"),
           notifyCustomer: false
-        }).then(requireOk).then(refreshDetail).catch(function (error) {
+        }).then(requireOk).then(function () {
+          logActivity("Estado rapido", requestId + " cambio a " + button.getAttribute("data-quick-status") + ".");
+          return refreshDetail();
+        }).catch(function (error) {
           setAlert("error", error.message);
         });
       });
@@ -1303,7 +1764,10 @@
       event.preventDefault();
       var data = new FormData(noteForm);
       sendAction("addInternalNote", { requestId: requestId, note: data.get("note") })
-        .then(requireOk).then(refreshDetail).catch(function (error) {
+        .then(requireOk).then(function () {
+          logActivity("Nota interna", "Se agrego nota en " + requestId + ".");
+          return refreshDetail();
+        }).catch(function (error) {
           setAlert("error", error.message);
         });
     });
@@ -1313,6 +1777,7 @@
       event.preventDefault();
       sendAction("createQuote", quotePayload()).then(requireOk).then(function () {
         setAlert("success", "Cotizacion guardada.");
+        logActivity("Cotizacion guardada", "Se guardo cotizacion para " + requestId + ".");
         return refreshDetail();
       }).catch(function (error) {
         setAlert("error", error.message);
@@ -1332,6 +1797,7 @@
     sendQuoteBtn.addEventListener("click", function () {
       sendAction("sendQuoteEmail", quotePayload()).then(requireOk).then(function () {
         setAlert("success", "Cotizacion enviada.");
+        logActivity("Cotizacion enviada", "Se envio cotizacion para " + requestId + ".");
         return refreshDetail();
       }).catch(function (error) {
         setAlert("error", error.message);
@@ -1341,6 +1807,7 @@
     resendBtn.addEventListener("click", function () {
       sendAction("resendCustomerConfirmation", { requestId: requestId }).then(requireOk).then(function () {
         setAlert("success", "Confirmacion reenviada.");
+        logActivity("Confirmacion reenviada", "Se reenvio confirmacion para " + requestId + ".");
         return refreshDetail();
       }).catch(function (error) {
         setAlert("error", error.message);
@@ -1380,6 +1847,8 @@
     if (adminViewEyebrow) adminViewEyebrow.textContent = copy.eyebrow;
     if (adminViewTitle) adminViewTitle.textContent = copy.title;
     if (adminViewSubtitle) adminViewSubtitle.textContent = copy.subtitle;
+    if (next === "schedule") renderSchedule();
+    if (next === "reports") renderReports();
   }
 
   function bindAdminNavigation() {
@@ -1390,6 +1859,99 @@
       setAdminView(tab.getAttribute("data-admin-tab"));
     });
     setAdminView("dashboard");
+  }
+
+  function scheduleEventById(eventId) {
+    return allScheduleEvents().filter(function (event) { return event.id === eventId; })[0] || null;
+  }
+
+  function bindScheduleTools() {
+    if (clearScheduleFormBtn) clearScheduleFormBtn.addEventListener("click", clearScheduleForm);
+    if (exportScheduleCsvBtn) exportScheduleCsvBtn.addEventListener("click", exportScheduleCsv);
+
+    if (scheduleForm) {
+      scheduleForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var payload = schedulePayload();
+        if (!payload.date || !payload.time) {
+          setAlert("error", "Fecha y hora son requeridas para la agenda.");
+          return;
+        }
+        var existing = (state.schedule || []).filter(function (item) { return item.id === payload.id; })[0];
+        if (existing) {
+          Object.assign(existing, payload);
+        } else {
+          state.schedule.push(payload);
+        }
+        saveScheduleEvents();
+        clearScheduleForm();
+        renderSchedule();
+        setAlert("success", "Evento de agenda guardado.");
+        logActivity("Agenda actualizada", payload.type + " para " + (payload.requestId || "evento interno") + ".");
+      });
+    }
+
+    [scheduleTable, scheduleWeek].forEach(function (area) {
+      if (!area) return;
+      area.addEventListener("click", function (event) {
+        var openBtn = event.target.closest("[data-open]");
+        if (openBtn) {
+          openDetail(openBtn.getAttribute("data-open"));
+          return;
+        }
+
+        var weekBtn = event.target.closest("[data-schedule-open]");
+        if (weekBtn) {
+          var weekEvent = scheduleEventById(weekBtn.getAttribute("data-schedule-open"));
+          if (!weekEvent) return;
+          if (weekEvent.derived && weekEvent.requestId) {
+            openDetail(weekEvent.requestId);
+          } else {
+            fillScheduleForm(weekEvent.id);
+          }
+          return;
+        }
+
+        var row = event.target.closest("[data-schedule-id]");
+        if (!row) return;
+        var eventId = row.getAttribute("data-schedule-id");
+        var scheduleEvent = (state.schedule || []).filter(function (item) { return item.id === eventId; })[0];
+        if (!scheduleEvent) return;
+
+        if (event.target.closest("[data-edit-schedule]")) {
+          fillScheduleForm(eventId);
+          return;
+        }
+        if (event.target.closest("[data-complete-schedule]")) {
+          scheduleEvent.status = "Completado";
+          scheduleEvent.updatedAt = localTimestamp();
+          saveScheduleEvents();
+          renderSchedule();
+          setAlert("success", "Evento marcado como completado.");
+          logActivity("Agenda completada", eventId + " marcado como completado.");
+          return;
+        }
+        if (event.target.closest("[data-delete-schedule]")) {
+          state.schedule = state.schedule.filter(function (item) { return item.id !== eventId; });
+          saveScheduleEvents();
+          renderSchedule();
+          setAlert("success", "Evento borrado de la agenda.");
+          logActivity("Agenda borrada", eventId + " fue eliminado.");
+        }
+      });
+    });
+  }
+
+  function bindReportTools() {
+    if (exportReportCsvBtn) exportReportCsvBtn.addEventListener("click", exportReportCsv);
+    if (clearActivityLogBtn) {
+      clearActivityLogBtn.addEventListener("click", function () {
+        state.activityLog = [];
+        saveActivityLog();
+        renderReports();
+        setAlert("success", "Logs del panel borrados.");
+      });
+    }
   }
 
   function bindGalleryTools() {
@@ -1428,6 +1990,7 @@
         sendAction("upsertGalleryItem", payload).then(requireOk).then(function () {
           clearGalleryForm();
           setAlert("success", "Foto de galeria guardada.");
+          logActivity("Galeria guardada", payload.title + " fue guardada.");
           return loadGallery();
         }).catch(function (error) {
           setAlert("error", error.message);
@@ -1455,6 +2018,7 @@
           });
           sendAction("upsertGalleryItem", payload).then(requireOk).then(function () {
             setAlert("success", "Estado de foto actualizado.");
+            logActivity("Galeria actualizada", item.title + " cambio a " + payload.status + ".");
             return loadGallery();
           }).catch(function (error) {
             setAlert("error", error.message);
@@ -1466,6 +2030,7 @@
           sendAction("deleteGalleryItem", { id: itemId }).then(requireOk).then(function () {
             if (galleryForm && galleryForm.elements.id.value === itemId) clearGalleryForm();
             setAlert("success", "Foto borrada de la galeria.");
+            logActivity("Galeria borrada", item.title + " fue eliminada.");
             return loadGallery();
           }).catch(function (error) {
             setAlert("error", error.message);
@@ -1487,6 +2052,7 @@
         saveAdminSettings();
         renderPaymentSettings();
         setAlert("success", "Configuracion de pagos guardada.");
+        logActivity("Pagos guardados", "Se actualizaron deposito, instrucciones y confirmacion.");
       });
     }
 
@@ -1506,6 +2072,7 @@
         saveAdminSettings();
         renderPaymentSettings();
         setAlert("success", "Metodo de pago agregado.");
+        logActivity("Metodo de pago", name + " fue agregado.");
       });
     }
 
@@ -1520,9 +2087,11 @@
         if (event.target.closest("[data-delete-payment]")) {
           state.adminSettings.payments.methods = methods.filter(function (entry) { return entry.id !== methodId; });
           setAlert("success", "Metodo de pago borrado.");
+          logActivity("Metodo de pago borrado", method.name + " fue eliminado.");
         } else if (event.target.closest("[data-toggle-payment]")) {
           method.status = method.status === "Activo" ? "Pausado" : "Activo";
           setAlert("success", "Metodo de pago actualizado.");
+          logActivity("Metodo de pago actualizado", method.name + " cambio a " + method.status + ".");
         } else {
           return;
         }
@@ -1545,6 +2114,7 @@
       saveAdminSettings();
       renderEmailSettings();
       setAlert("success", "Configuracion de correos guardada.");
+      logActivity("Correos guardados", "Se actualizaron asuntos, firma y correo de respuesta.");
     });
   }
 
@@ -1574,7 +2144,9 @@
         saveAdminSettings();
         clearUserForm();
         renderUsers();
+        renderSchedule();
         setAlert("success", "Usuario guardado.");
+        logActivity("Usuario guardado", user.name + " fue guardado como " + user.role + ".");
       });
     }
 
@@ -1593,15 +2165,18 @@
         if (event.target.closest("[data-toggle-user]")) {
           user.status = user.status === "Activo" ? "Pausado" : "Activo";
           setAlert("success", "Usuario actualizado.");
+          logActivity("Usuario actualizado", user.name + " cambio a " + user.status + ".");
         } else if (event.target.closest("[data-delete-user]")) {
           state.adminSettings.users = users.filter(function (entry) { return entry.id !== userId; });
           if (userForm && userForm.elements.userId.value === userId) clearUserForm();
           setAlert("success", "Usuario borrado.");
+          logActivity("Usuario borrado", user.name + " fue eliminado.");
         } else {
           return;
         }
         saveAdminSettings();
         renderUsers();
+        renderSchedule();
       });
     }
   }
@@ -1619,10 +2194,13 @@
       saveAdminSettings();
       renderOperationsSettings();
       setAlert("success", "Ajustes operativos guardados.");
+      logActivity("Ajustes guardados", "Se actualizo la informacion operativa del negocio.");
     });
   }
 
   function bindAdminTools() {
+    bindScheduleTools();
+    bindReportTools();
     bindGalleryTools();
     bindPaymentSettings();
     bindEmailSettings();
