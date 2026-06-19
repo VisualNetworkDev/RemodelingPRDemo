@@ -1,4 +1,4 @@
-const fs = require("fs");
+﻿const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
@@ -16,6 +16,11 @@ for (const file of requiredFiles) {
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Missing required file: ${file}`);
   }
+}
+
+const backendDir = path.join(root, "backend");
+if (fs.existsSync(backendDir)) {
+  throw new Error("Backend must not be included in the GitHub Pages publication folder.");
 }
 
 const forbidden = /\b(TODO|placeholder logic|implementar despues)\b/i;
@@ -65,7 +70,7 @@ for (const pattern of publicCopyForbidden) {
   }
 }
 
-for (const marker of ["app-console", "data-app-section", "feature-device", "service-app-card", "payment-screen"]) {
+for (const marker of ["app-console", "data-app-section", "feature-device", "service-app-card", "payment-screen", "projectPortalForm", "projectPortalResult"]) {
   if (!indexHtml.includes(marker)) throw new Error(`Public index missing redesign marker ${marker}`);
 }
 
@@ -77,11 +82,11 @@ for (const marker of ["optimizeImageDataUrl", "readOptimizedPhoto", "OPTIMIZED_P
   if (!appJs.includes(marker)) throw new Error(`Public photo uploads must stay optimized before backend submit: ${marker}`);
 }
 
-if ((indexHtml.match(/data-app-section=/g) || []).length < 6) {
+if ((indexHtml.match(/data-app-section=/g) || []).length < 7) {
   throw new Error("Public index must use app sections instead of one long scrolling page.");
 }
 
-for (const action of ["submitRequest"]) {
+for (const action of ["submitRequest", "getPublicProject", "renderProjectPortal", "handlePortalSubmit"]) {
   if (!appJs.includes(action)) throw new Error(`Public app missing action ${action}`);
 }
 
@@ -106,3 +111,4 @@ for (const marker of ["optimizeImageDataUrl", "readGalleryPhoto", "OPTIMIZED_GAL
 }
 
 console.log("Smoke checks passed");
+

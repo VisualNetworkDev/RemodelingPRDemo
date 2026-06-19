@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -23,7 +23,7 @@
       <button type="button" data-app-target="servicios">Servicios</button>
       <button type="button" data-app-target="proceso">Proceso</button>
       <button type="button" data-app-target="galeria">Galeria</button>
-      <button type="button" data-app-target="pagos">Pagos</button>
+      <button type="button" data-app-target="pagos">Pagos</button>`r`n      <button type="button" data-app-target="seguimiento">Seguimiento</button>
       <button class="nav-cta" type="button" data-app-target="consulta">Evaluar proyecto</button>
     </nav>
   </header>
@@ -32,7 +32,7 @@
     <button class="active" type="button" data-app-target="inicio">Inicio</button>
     <button type="button" data-app-target="servicios">Servicios</button>
     <button type="button" data-app-target="galeria">Galeria</button>
-    <button type="button" data-app-target="consulta">Evaluar</button>
+    <button type="button" data-app-target="seguimiento">Estado</button>`r`n    <button type="button" data-app-target="consulta">Evaluar</button>
   </nav>
 
   <main class="app-console" aria-live="polite">
@@ -222,6 +222,31 @@
       </div>
     </section>
 
+
+    <section id="seguimiento" class="app-screen tracking-screen" data-app-section="seguimiento">
+      <div class="screen-toolbar">
+        <div>
+          <p class="eyebrow">Seguimiento</p>
+          <h2>Consulta el estado de tu proyecto.</h2>
+          <p>Usa el codigo recibido al enviar la evaluacion para ver estatus, fotos, cotizacion y pagos disponibles.</p>
+        </div>
+      </div>
+      <div class="tracking-layout">
+        <form id="projectPortalForm" class="portal-search-card" novalidate>
+          <label>Codigo de proyecto
+            <input name="requestId" placeholder="ARPR-10001" autocomplete="off" required>
+          </label>
+          <button id="projectPortalBtn" class="btn primary full" type="submit">Consultar estado</button>
+          <div id="projectPortalAlert" class="form-alert" role="status" aria-live="polite"></div>
+        </form>
+        <section id="projectPortalResult" class="portal-result-card" aria-live="polite">
+          <div class="empty-state">
+            <strong>Sin busqueda activa</strong>
+            <p>Cuando consultes un codigo, aqui aparece el resumen del proyecto.</p>
+          </div>
+        </section>
+      </div>
+    </section>
     <section id="consulta" class="app-screen form-screen" data-app-section="consulta">
       <div class="app-screen-copy form-copy">
         <p class="eyebrow">Evaluacion</p>
@@ -300,3 +325,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+

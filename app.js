@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   "use strict";
 
   var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
@@ -15,6 +15,10 @@
   var formAlert = document.getElementById("formAlert");
   var submitBtn = document.getElementById("submitBtn");
   var galleryGrid = document.getElementById("galleryGrid");
+  var projectPortalForm = document.getElementById("projectPortalForm");
+  var projectPortalResult = document.getElementById("projectPortalResult");
+  var projectPortalAlert = document.getElementById("projectPortalAlert");
+  var projectPortalBtn = document.getElementById("projectPortalBtn");
 
   function appSections() {
     return Array.prototype.slice.call(document.querySelectorAll("[data-app-section]"));
@@ -51,6 +55,12 @@
     formAlert.textContent = message || "";
   }
 
+  function setPortalAlert(type, message) {
+    if (!projectPortalAlert) return;
+    projectPortalAlert.className = "form-alert" + (message ? " show " + (type || "") : "");
+    projectPortalAlert.textContent = message || "";
+  }
+
   function clearAlert() {
     if (!formAlert) return;
     formAlert.className = "form-alert";
@@ -63,6 +73,12 @@
       submitBtn.disabled = isBusy;
       submitBtn.textContent = isBusy ? "Enviando..." : "Enviar para evaluacion";
     }
+  }
+
+  function setPortalBusy(isBusy) {
+    if (!projectPortalBtn) return;
+    projectPortalBtn.disabled = isBusy;
+    projectPortalBtn.textContent = isBusy ? "Consultando..." : "Consultar estado";
   }
 
   function submitEvaluation(action, payload) {
@@ -298,6 +314,85 @@
       });
   }
 
+
+  function money(value) {
+    var number = Number(value || 0);
+    return "$" + (Number.isFinite(number) ? number : 0).toFixed(2);
+  }
+
+  function statusTone(status) {
+    if (status === "Completado" || status === "Aprobado") return "ok";
+    if (status === "Cancelado") return "danger";
+    if (status === "Pendiente" || status === "Cotizacion enviada") return "warn";
+    return "";
+  }
+
+  function renderPortalPhotos(photos) {
+    var list = Array.isArray(photos) ? photos : [];
+    if (!list.length) return '<div class="mini-empty">No hay fotos publicadas para este codigo.</div>';
+    return '<div class="portal-photo-grid">' + list.slice(0, 6).map(function (url, index) {
+      return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener"><img src="' + escapeAttr(url) + '" alt="Foto del proyecto ' + (index + 1) + '"></a>';
+    }).join("") + '</div>';
+  }
+
+  function renderPortalQuote(project) {
+    var quote = project.quote || {};
+    if (!quote.quoteId) {
+      return '<article class="portal-panel"><span>Cotizacion</span><strong>En preparacion</strong><p>El equipo revisa el alcance para preparar una propuesta.</p></article>';
+    }
+    return '<article class="portal-panel portal-quote-panel">' +
+      '<span>Cotizacion</span>' +
+      '<strong>' + escapeHtml(quote.quoteId) + ' - ' + money(quote.total) + '</strong>' +
+      '<p>' + escapeHtml(quote.workDescription || "Propuesta preparada para el proyecto.") + '</p>' +
+      '<div class="portal-kv"><b>Tiempo estimado</b><em>' + escapeHtml(quote.estimatedTime || "A coordinar") + '</em></div>' +
+      '<div class="portal-kv"><b>Validez</b><em>' + escapeHtml(quote.validUntil || "15 dias") + '</em></div>' +
+      '<div class="portal-kv"><b>Deposito</b><em>' + escapeHtml(quote.depositRequired || "A coordinar") + '</em></div>' +
+      '<div class="portal-payment-list">' + (quote.paymentOptions || []).map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join("") + '</div>' +
+      '<p>' + escapeHtml(quote.paymentNotes || "La forma de pago se confirma antes de comenzar.") + '</p>' +
+    '</article>';
+  }
+
+  function renderProjectPortal(project) {
+    if (!projectPortalResult || !project) return;
+    projectPortalResult.innerHTML = '<div class="portal-result-head">' +
+      '<div><span class="eyebrow">Proyecto</span><h3>' + escapeHtml(project.requestId) + '</h3><p>' + escapeHtml(project.service || "Servicio") + ' - ' + escapeHtml(project.city || "Puerto Rico") + '</p></div>' +
+      '<span class="status-pill ' + statusTone(project.status) + '">' + escapeHtml(project.status || "Pendiente") + '</span>' +
+    '</div>' +
+    '<div class="portal-summary-grid">' +
+      '<article><span>Fecha preferida</span><strong>' + escapeHtml(project.preferredDate || "Pendiente") + '</strong></article>' +
+      '<article><span>Prioridad</span><strong>' + escapeHtml(project.urgency || "Normal") + '</strong></article>' +
+      '<article><span>Total cotizado</span><strong>' + money(project.totalQuoted) + '</strong></article>' +
+    '</div>' +
+    '<div class="portal-timeline">' + (project.timeline || []).map(function (item) {
+      return '<div class="' + (item.done ? "done" : "") + '"><i></i><span>' + escapeHtml(item.label) + '</span></div>';
+    }).join("") + '</div>' +
+    renderPortalQuote(project) +
+    '<article class="portal-panel"><span>Fotos del proyecto</span>' + renderPortalPhotos(project.photos) + '</article>';
+  }
+
+  function handlePortalSubmit(event) {
+    event.preventDefault();
+    if (!projectPortalForm) return;
+    var data = new FormData(projectPortalForm);
+    var requestId = String(data.get("requestId") || "").trim().toUpperCase();
+    if (!requestId) {
+      setPortalAlert("error", "Escribe el codigo del proyecto.");
+      return;
+    }
+    setPortalAlert("", "");
+    setPortalBusy(true);
+    publicAction("getPublicProject", { requestId: requestId }).then(function (response) {
+      if (!response || !response.ok) throw new Error((response && response.message) || "No se encontro ese codigo.");
+      renderProjectPortal(response.data.project);
+      setPortalAlert("success", "Proyecto cargado.");
+    }).catch(function (error) {
+      setPortalAlert("error", error.message || "No se pudo consultar el proyecto.");
+    }).finally(function () {
+      setPortalBusy(false);
+    });
+  }
+
+
   function closeMenu() {
     var header = document.querySelector(".site-header");
     var toggle = document.querySelector(".menu-toggle");
@@ -445,6 +540,7 @@
 
   if (photoInput) photoInput.addEventListener("change", renderPhotoPreview);
   if (form) form.addEventListener("submit", handleSubmit);
+  if (projectPortalForm) projectPortalForm.addEventListener("submit", handlePortalSubmit);
   bindMenu();
   bindAppNavigation();
   bindReveal();
@@ -454,3 +550,5 @@
   loadGallery();
   setMinimumDate();
 })();
+
+
