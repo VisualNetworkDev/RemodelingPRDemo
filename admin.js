@@ -1714,10 +1714,12 @@
           '<label class="wide">Notas de pago<textarea name="paymentNotes" rows="3">' + esc(quote.NotasPago || "La duena confirma la forma de pago disponible, deposito y balance antes de comenzar.") + '</textarea></label>' +
         '</div>' +
         '<div class="quote-total"><span>Total automatico</span><strong id="quoteTotal">$0.00</strong></div>' +
+        (quote.PdfUrl ? '<p class="quote-pdf-link"><a href="' + esc(quote.PdfUrl) + '" target="_blank" rel="noopener">Abrir PDF generado</a></p>' : '') +
         '<div class="row-actions">' +
           '<button class="btn primary" type="submit">Guardar cotizacion</button>' +
           '<button class="btn secondary" type="button" id="previewQuoteBtn">Vista previa</button>' +
           '<button class="btn secondary" type="button" id="sendQuoteBtn">Enviar cotizacion</button>' +
+          '<button class="btn secondary" type="button" id="generateQuotePdfBtn">Generar PDF</button>' +
         '</div>' +
       '</form>' +
       '<iframe id="quotePreviewFrame" class="preview-frame hidden" title="Vista previa de cotizacion"></iframe>' +
@@ -1780,6 +1782,7 @@
     var quoteForm = document.getElementById("quoteForm");
     var previewBtn = document.getElementById("previewQuoteBtn");
     var sendQuoteBtn = document.getElementById("sendQuoteBtn");
+    var generatePdfBtn = document.getElementById("generateQuotePdfBtn");
     var resendBtn = document.getElementById("resendConfirmationBtn");
     var projectPhotoForm = document.getElementById("projectPhotoForm");
     var projectPhotoInput = document.getElementById("projectPhotoInput");
@@ -1895,6 +1898,17 @@
       sendAction("sendQuoteEmail", quotePayload()).then(requireOk).then(function () {
         setAlert("success", "Cotizacion enviada.");
         logActivity("Cotizacion enviada", "Se envio cotizacion para " + requestId + ".");
+        return refreshDetail();
+      }).catch(function (error) {
+        setAlert("error", error.message);
+      });
+    });
+
+    generatePdfBtn.addEventListener("click", function () {
+      sendAction("generateQuotePdf", { requestId: requestId }).then(requireOk).then(function (data) {
+        setAlert("success", "PDF generado.");
+        logActivity("PDF generado", "Se genero PDF para " + requestId + ".");
+        if (data.pdfUrl) window.open(data.pdfUrl, "_blank", "noopener");
         return refreshDetail();
       }).catch(function (error) {
         setAlert("error", error.message);

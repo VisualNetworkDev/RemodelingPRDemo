@@ -349,6 +349,7 @@
         '<p>Seleccion registrada: ' + escapeHtml(approval.paymentMethod || "Metodo pendiente") + '.</p>' +
         '<div class="portal-kv"><b>Estado de pago</b><em>' + escapeHtml(approval.status || "Pendiente de confirmacion") + '</em></div>' +
         '<div class="portal-kv"><b>Registrado</b><em>' + escapeHtml(approval.timestamp || "Recibido") + '</em></div>' +
+        (quote.pdfUrl ? '<a class="portal-pdf-link" href="' + escapeAttr(quote.pdfUrl) + '" target="_blank" rel="noopener">Ver PDF de cotizacion</a>' : '') +
       '</article>';
     }
     var methods = Array.isArray(quote.paymentOptions) && quote.paymentOptions.length ? quote.paymentOptions : ["ATH Movil", "Zelle", "Transferencia bancaria"];
@@ -359,6 +360,7 @@
       '<div class="portal-kv"><b>Tiempo estimado</b><em>' + escapeHtml(quote.estimatedTime || "A coordinar") + '</em></div>' +
       '<div class="portal-kv"><b>Validez</b><em>' + escapeHtml(quote.validUntil || "15 dias") + '</em></div>' +
       '<div class="portal-kv"><b>Deposito</b><em>' + escapeHtml(quote.depositRequired || "A coordinar") + '</em></div>' +
+      (quote.pdfUrl ? '<a class="portal-pdf-link" href="' + escapeAttr(quote.pdfUrl) + '" target="_blank" rel="noopener">Ver PDF de cotizacion</a>' : '') +
       '<div class="portal-payment-list">' + methods.map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join("") + '</div>' +
       '<p>' + escapeHtml(quote.paymentNotes || "La forma de pago se confirma antes de comenzar.") + '</p>' +
       '<form id="quoteApprovalForm" class="portal-approval-form">' +
