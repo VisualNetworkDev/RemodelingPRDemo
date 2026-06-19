@@ -105,7 +105,7 @@ if ((adminHtml.match(/data-admin-panel=/g) || []).length < 10) {
   throw new Error("Admin must use separated app sections for dashboard, requests, quotes, schedule, gallery, reports, payments, emails, users, and settings.");
 }
 
-for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "renderApprovalPanel", "approval-panel", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
+for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "renderApprovalPanel", "renderProjectPhotoPanel", "projectPhotoForm", "projectPhotoInput", "approval-panel", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
 }
 

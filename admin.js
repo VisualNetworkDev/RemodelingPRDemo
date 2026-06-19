@@ -226,6 +226,7 @@
     requests: [],
     gallery: [],
     galleryPhoto: null,
+    projectPhoto: null,
     stats: {},
     detail: null,
     adminSettings: loadAdminSettings(),
@@ -1562,7 +1563,8 @@
           kv("Total cotizado", money(request.totalCotizado)) +
         '</div></section>' +
       '</div>' +
-      '<section class="detail-panel"><h3>Descripcion</h3><p>' + esc(request.descripcion) + '</p><h3>Fotos del proyecto</h3>' + renderPhotos(request.fotosUrls) + '</section>' +
+      '<section class="detail-panel"><h3>Descripcion</h3><p>' + esc(request.descripcion) + '</p></section>' +
+      renderProjectPhotoPanel(request) +
       renderApprovalPanel(state.detail.approval || {}, state.detail.approvals || []) +
       renderStatusPanel(request) +
       renderNotesPanel(state.detail.notes || []) +
@@ -1581,6 +1583,24 @@
         '<span>Foto ' + (index + 1) + '</span>' +
       '</a>';
     }).join("") + '</div>';
+  }
+
+  function renderProjectPhotoPanel(request) {
+    return '<section class="detail-panel project-photo-panel">' +
+      '<h3>Fotos del proyecto</h3>' +
+      renderPhotos(request.fotosUrls) +
+      '<form id="projectPhotoForm" class="form-grid project-photo-form">' +
+        '<label class="wide">Subir foto nueva<input id="projectPhotoInput" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>' +
+        '<label class="wide">O pegar URL de foto<input name="imageUrl" placeholder="https://..."></label>' +
+        '<label>Titulo para galeria<input name="title" value="' + esc(request.servicio || "Proyecto") + '"></label>' +
+        '<label>Categoria<select name="category"><option value="roof">Techos</option><option value="interior" selected>Interiores</option><option value="commercial">Comercial</option></select></label>' +
+        '<label>Tipo<select name="type"><option>Proceso</option><option>Antes</option><option>Despues</option></select></label>' +
+        '<label class="check-row wide"><input name="publishGallery" type="checkbox"><span>Publicar tambien en la galeria del index</span></label>' +
+        '<label class="wide">Descripcion para galeria<textarea name="description" rows="2" placeholder="Detalle corto para la galeria publica"></textarea></label>' +
+        '<div id="projectPhotoPreview" class="admin-gallery-preview wide"></div>' +
+        '<button class="btn primary wide" type="submit">Guardar foto del proyecto</button>' +
+      '</form>' +
+    '</section>';
   }
 
   function statusOptions(selected) {
@@ -1761,6 +1781,9 @@
     var previewBtn = document.getElementById("previewQuoteBtn");
     var sendQuoteBtn = document.getElementById("sendQuoteBtn");
     var resendBtn = document.getElementById("resendConfirmationBtn");
+    var projectPhotoForm = document.getElementById("projectPhotoForm");
+    var projectPhotoInput = document.getElementById("projectPhotoInput");
+    var projectPhotoPreview = document.getElementById("projectPhotoPreview");
 
     statusForm.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -1804,6 +1827,47 @@
           setAlert("error", error.message);
         });
     });
+
+    if (projectPhotoInput) {
+      projectPhotoInput.addEventListener("change", function () {
+        var file = projectPhotoInput.files && projectPhotoInput.files[0];
+        readGalleryPhoto(file).then(function (photo) {
+          state.projectPhoto = photo;
+          if (projectPhotoPreview && photo) {
+            projectPhotoPreview.innerHTML = '<img src="' + esc(photo.dataUrl) + '" alt="Vista previa"><span>Foto lista para guardar</span>';
+          }
+        }).catch(function (error) {
+          state.projectPhoto = null;
+          projectPhotoInput.value = "";
+          if (projectPhotoPreview) projectPhotoPreview.innerHTML = "";
+          setAlert("error", error.message);
+        });
+      });
+    }
+
+    if (projectPhotoForm) {
+      projectPhotoForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = new FormData(projectPhotoForm);
+        sendAction("addProjectPhoto", {
+          requestId: requestId,
+          imageUrl: String(data.get("imageUrl") || "").trim(),
+          photo: state.projectPhoto,
+          publishGallery: data.get("publishGallery") === "on",
+          title: String(data.get("title") || "").trim(),
+          category: String(data.get("category") || "interior"),
+          type: String(data.get("type") || "Proceso"),
+          description: String(data.get("description") || "").trim()
+        }).then(requireOk).then(function () {
+          state.projectPhoto = null;
+          setAlert("success", "Foto del proyecto guardada.");
+          logActivity("Foto agregada", "Se agrego foto a " + requestId + ".");
+          return refreshDetail();
+        }).catch(function (error) {
+          setAlert("error", error.message);
+        });
+      });
+    }
 
     quoteForm.addEventListener("input", updateQuoteTotal);
     quoteForm.addEventListener("submit", function (event) {
