@@ -1,0 +1,302 @@
+(function () {
+  "use strict";
+
+  var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
+  var MAX_PHOTOS = 5;
+  var MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+  var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var submitting = false;
+  var activeClientKey = "";
+
+  var form = document.getElementById("estimateForm");
+  var photoInput = document.getElementById("photoInput");
+  var photoPreview = document.getElementById("photoPreview");
+  var formAlert = document.getElementById("formAlert");
+  var submitBtn = document.getElementById("submitBtn");
+
+  function endpointUrl() {
+    return (DEFAULT_ENDPOINT_URL || "").trim();
+  }
+
+  function setAlert(type, message) {
+    if (!formAlert) return;
+    formAlert.className = "form-alert show " + (type || "");
+    formAlert.textContent = message || "";
+  }
+
+  function clearAlert() {
+    if (!formAlert) return;
+    formAlert.className = "form-alert";
+    formAlert.textContent = "";
+  }
+
+  function setBusy(isBusy) {
+    submitting = isBusy;
+    if (submitBtn) {
+      submitBtn.disabled = isBusy;
+      submitBtn.textContent = isBusy ? "Enviando..." : "Enviar para evaluacion";
+    }
+  }
+
+  function submitEvaluation(action, payload) {
+    var url = endpointUrl();
+    if (!url) {
+      return Promise.resolve({
+        ok: false,
+        message: "No se pudo procesar la informacion en este momento."
+      });
+    }
+
+    return fetch(url, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: action, payload: payload || {} })
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return { ok: false, message: "No se pudo leer la respuesta. Intentalo nuevamente." };
+        }
+      });
+    }).catch(function () {
+      return {
+        ok: false,
+        message: "No se pudo completar el envio. Intentalo nuevamente en unos minutos."
+      };
+    });
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve({
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+          dataUrl: reader.result
+        });
+      };
+      reader.onerror = function () {
+        reject(new Error("No se pudo leer la foto " + file.name + "."));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function validatePhotos(files) {
+    var list = Array.prototype.slice.call(files || []);
+    if (list.length > MAX_PHOTOS) {
+      throw new Error("Puedes subir hasta " + MAX_PHOTOS + " fotos.");
+    }
+    list.forEach(function (file) {
+      if (ALLOWED_TYPES.indexOf(file.type) === -1) {
+        throw new Error("La foto " + file.name + " debe ser JPG, PNG o WEBP.");
+      }
+      if (file.size > MAX_PHOTO_BYTES) {
+        throw new Error("La foto " + file.name + " excede 4 MB.");
+      }
+    });
+    return list;
+  }
+
+  function renderPhotoPreview() {
+    if (!photoPreview || !photoInput) return;
+    photoPreview.innerHTML = "";
+    try {
+      var files = validatePhotos(photoInput.files);
+      files.forEach(function (file) {
+        var chip = document.createElement("div");
+        chip.className = "photo-chip";
+        chip.textContent = file.name + " - " + Math.round(file.size / 1024) + " KB";
+        photoPreview.appendChild(chip);
+      });
+      clearAlert();
+    } catch (error) {
+      setAlert("error", error.message);
+      photoInput.value = "";
+    }
+  }
+
+  function makeClientKey() {
+    if (activeClientKey) return activeClientKey;
+    if (window.crypto && crypto.randomUUID) {
+      activeClientKey = crypto.randomUUID();
+    } else {
+      activeClientKey = "client-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+    }
+    return activeClientKey;
+  }
+
+  function resetClientKey() {
+    activeClientKey = "";
+  }
+
+  function collectPayload() {
+    var data = new FormData(form);
+    return {
+      fullName: String(data.get("fullName") || "").trim(),
+      phone: String(data.get("phone") || "").trim(),
+      email: String(data.get("email") || "").trim(),
+      city: String(data.get("city") || "").trim(),
+      serviceType: String(data.get("serviceType") || "").trim(),
+      projectZone: String(data.get("projectZone") || "").trim(),
+      preferredDate: String(data.get("preferredDate") || "").trim(),
+      urgency: String(data.get("urgency") || "").trim(),
+      description: String(data.get("description") || "").trim(),
+      acceptTerms: data.get("acceptTerms") === "on",
+      origin: window.location.href,
+      language: "es",
+      clientRequestKey: makeClientKey()
+    };
+  }
+
+  function validatePayload(payload) {
+    if (!form.reportValidity()) throw new Error("Completa los campos requeridos.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) throw new Error("Escribe un email valido.");
+    if (payload.phone.replace(/\D/g, "").length < 7) throw new Error("Escribe un telefono valido.");
+    if (!payload.acceptTerms) throw new Error("Debes aceptar la evaluacion inicial.");
+    validatePhotos(photoInput.files);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (submitting) return;
+    clearAlert();
+
+    var payload = collectPayload();
+    var files;
+    try {
+      validatePayload(payload);
+      files = validatePhotos(photoInput.files);
+    } catch (error) {
+      setAlert("error", error.message);
+      return;
+    }
+
+    setBusy(true);
+    Promise.all(files.map(fileToDataUrl))
+      .then(function (photos) {
+        payload.photos = photos;
+        return submitEvaluation("submitRequest", payload);
+      })
+      .then(function (response) {
+        if (!response || !response.ok) {
+          throw new Error((response && response.message) || "No se pudo enviar la informacion.");
+        }
+        var id = response.data && response.data.requestId ? response.data.requestId : "recibido";
+        setAlert("success", "Informacion recibida. Codigo de seguimiento: " + id + ".");
+        form.reset();
+        if (photoPreview) photoPreview.innerHTML = "";
+        resetClientKey();
+      })
+      .catch(function (error) {
+        setAlert("error", error.message || "No se pudo enviar la informacion.");
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function closeMenu() {
+    var header = document.querySelector(".site-header");
+    var toggle = document.querySelector(".menu-toggle");
+    if (!header || !toggle) return;
+    header.classList.remove("nav-open");
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  function bindMenu() {
+    var header = document.querySelector(".site-header");
+    var toggle = document.querySelector(".menu-toggle");
+    if (!header || !toggle) return;
+    toggle.addEventListener("click", function () {
+      var isOpen = header.classList.toggle("nav-open");
+      toggle.setAttribute("aria-expanded", String(isOpen));
+    });
+    document.querySelectorAll(".top-nav a").forEach(function (link) {
+      link.addEventListener("click", closeMenu);
+    });
+  }
+
+  function bindReveal() {
+    var nodes = document.querySelectorAll(".reveal");
+    if (!nodes.length) return;
+    if (!("IntersectionObserver" in window)) {
+      nodes.forEach(function (node) { node.classList.add("in-view"); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in-view");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    nodes.forEach(function (node) { observer.observe(node); });
+  }
+
+  function bindServiceButtons() {
+    document.querySelectorAll("[data-service]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var select = form && form.elements.serviceType;
+        if (!select) return;
+        select.value = button.getAttribute("data-service");
+        document.getElementById("consulta").scrollIntoView({ behavior: "smooth", block: "start" });
+        window.setTimeout(function () {
+          select.focus({ preventScroll: true });
+        }, 450);
+      });
+    });
+  }
+
+  function bindServiceFilters() {
+    var tabs = document.querySelectorAll("[data-filter]");
+    var cards = document.querySelectorAll("[data-category]");
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        var filter = tab.getAttribute("data-filter");
+        tabs.forEach(function (item) { item.classList.toggle("active", item === tab); });
+        cards.forEach(function (card) {
+          var match = filter === "all" || card.getAttribute("data-category") === filter;
+          card.classList.toggle("is-hidden", !match);
+        });
+      });
+    });
+  }
+
+  function bindGalleryFilters() {
+    var buttons = document.querySelectorAll("[data-gallery]");
+    var cards = document.querySelectorAll("[data-gallery-item]");
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var filter = button.getAttribute("data-gallery");
+        buttons.forEach(function (item) { item.classList.toggle("active", item === button); });
+        cards.forEach(function (card) {
+          var match = filter === "all" || card.getAttribute("data-gallery-item") === filter;
+          card.classList.toggle("is-hidden", !match);
+        });
+      });
+    });
+  }
+
+  function setMinimumDate() {
+    var dateInput = form && form.elements.preferredDate;
+    if (!dateInput) return;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dateInput.min = today.toISOString().slice(0, 10);
+  }
+
+  if (photoInput) photoInput.addEventListener("change", renderPhotoPreview);
+  if (form) form.addEventListener("submit", handleSubmit);
+  bindMenu();
+  bindReveal();
+  bindServiceButtons();
+  bindServiceFilters();
+  bindGalleryFilters();
+  setMinimumDate();
+})();

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel operativo | Atlas Remodeling PR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-body">
+  <header class="site-header">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">AR</span>
+      <span>Atlas Remodeling PR</span>
+    </a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="adminNav">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <nav id="adminNav" class="top-nav" aria-label="Panel">
+      <a href="index.html">Pagina publica</a>
+      <a href="#resumen">Resumen</a>
+      <a href="#consultas">Consultas</a>
+      <button id="refreshBtn" class="btn secondary small" type="button">Actualizar</button>
+    </nav>
+  </header>
+
+  <section class="admin-hero">
+    <div>
+      <p class="eyebrow">Panel operativo</p>
+      <h1>Consultas, estados, notas y cotizaciones en una sola vista.</h1>
+    </div>
+    <div class="admin-hero-card">
+      <span>Vista demo</span>
+      <strong>Sin acceso bloqueado</strong>
+    </div>
+  </section>
+
+  <main id="resumen">
+    <section id="adminShell" class="admin-shell">
+      <div class="admin-toolbar">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h2>Resumen de actividad</h2>
+        </div>
+        <div class="row-actions">
+          <button class="btn secondary" type="button" data-panel-jump="#consultas">Ver consultas</button>
+        </div>
+      </div>
+
+      <div id="adminAlert" class="admin-alert" role="status"></div>
+      <div id="statsGrid" class="stat-grid"></div>
+
+      <section class="ops-grid" aria-label="Resumen operativo extendido">
+        <article class="admin-card ops-card pipeline-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Pipeline</p>
+              <h3>Flujo de trabajo</h3>
+            </div>
+            <span id="pipelineCount" class="status-pill warn">0 activas</span>
+          </div>
+          <div id="pipelineBoard" class="pipeline-board"></div>
+        </article>
+
+        <article class="admin-card ops-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Prioridad</p>
+              <h3>Proximas acciones</h3>
+            </div>
+          </div>
+          <div id="nextActions" class="action-list"></div>
+        </article>
+
+        <article class="admin-card ops-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Servicios</p>
+              <h3>Demanda por area</h3>
+            </div>
+          </div>
+          <div id="serviceMix" class="service-mix"></div>
+        </article>
+      </section>
+
+      <section id="consultas" class="admin-section">
+        <div class="admin-toolbar compact">
+          <div>
+            <p class="eyebrow">Bandeja</p>
+            <h2>Consultas recibidas</h2>
+          </div>
+        </div>
+
+        <div class="filter-row">
+          <label>Buscar
+            <input id="searchInput" placeholder="Nombre, telefono, pueblo, servicio o ID">
+          </label>
+          <label>Estado
+            <select id="statusFilter">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label>Servicio
+            <select id="serviceFilter">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label>Orden
+            <select id="sortOrder">
+              <option value="desc">Mas recientes</option>
+              <option value="asc">Mas antiguas</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Telefono</th>
+                <th>Pueblo</th>
+                <th>Servicio</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th>Accion</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="detailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-panel">
+      <div class="detail-header">
+        <div>
+          <p class="eyebrow">Detalle</p>
+          <h2 id="detailTitle">Consulta</h2>
+        </div>
+        <button id="closeDetailBtn" class="btn secondary" type="button">Cerrar</button>
+      </div>
+
+      <div id="detailBody"></div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
