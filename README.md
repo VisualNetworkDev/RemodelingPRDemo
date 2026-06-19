@@ -4,11 +4,11 @@ Demo premium para remodelacion, sellado de techos, galvalume, pintura, reparacio
 
 ## Estructura
 
-- `index.html`: pagina publica con menu, filtros, animaciones, galeria y formulario.
+- `index.html`: pagina publica redisenada con experiencia tipo app, menu movil, fotos por servicio, galeria y formulario.
 - `admin.html`: panel operativo directo, sin PIN ni pantalla de acceso.
 - `styles.css`: estilos responsive compartidos.
 - `app.js`: interacciones de la pagina publica, validaciones, fotos y envio.
-- `admin.js`: dashboard, filtros, detalle, estados, notas y cotizaciones.
+- `admin.js`: dashboard, filtros, detalle, estados, notas, cotizaciones con fotos y opciones de pago.
 - `backend/Code.gs`: entradas `doGet`/`doPost`, rutas, validaciones y flujos principales.
 - `backend/Sheets.gs`: lectura/escritura de Google Sheets, historial, normalizacion y datos demo.
 - `backend/Messages.gs`: correos, plantillas HTML, fotos y carpeta de Drive.
@@ -46,6 +46,7 @@ Si `/exec?action=ping` responde 403, falta autorizar permisos o confirmar el acc
 - `Config`
 
 `setupDemo()` es idempotente: crea encabezados faltantes y agrega datos demo sin duplicar los registros base.
+La cotizacion demo `Q-ARPR-10001` incluye fotos del proyecto y opciones de pago para coordinar con la duena del negocio.
 
 ## Acciones principales
 

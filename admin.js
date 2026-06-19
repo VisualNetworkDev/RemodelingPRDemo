@@ -35,7 +35,11 @@
       pueblo: "Carolina",
       servicio: "Remodelacion interior",
       estado: "Evaluacion programada",
-      totalCotizado: 0
+      totalCotizado: 0,
+      fotosUrls: [
+        "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=900&q=80"
+      ]
     },
     {
       id: "ARPR-10002",
@@ -46,7 +50,11 @@
       pueblo: "Caguas",
       servicio: "Pintura residencial y comercial",
       estado: "Cotizacion enviada",
-      totalCotizado: 1850
+      totalCotizado: 1850,
+      fotosUrls: [
+        "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80"
+      ]
     },
     {
       id: "ARPR-10001",
@@ -57,7 +65,11 @@
       pueblo: "Bayamon",
       servicio: "Sellado de techos",
       estado: "Pendiente",
-      totalCotizado: 0
+      totalCotizado: 0,
+      fotosUrls: [
+        "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80"
+      ]
     }
   ];
 
@@ -401,14 +413,101 @@
     }).join("");
   }
 
+  function demoDetailForRequest(requestId) {
+    var summary = DEMO_REQUESTS.filter(function (request) {
+      return request.id === requestId;
+    })[0];
+    if (!summary) return null;
+    var descriptions = {
+      "ARPR-10001": "Techo residencial con filtracion menor cerca del area de laundry. Requiere revision de puntos criticos, limpieza y sellador.",
+      "ARPR-10002": "Pintura exterior y retoques de fachada para reapertura de local comercial.",
+      "ARPR-10003": "Actualizar sala y pasillo con pintura, detalles de pared y reparaciones menores."
+    };
+    var zones = {
+      "ARPR-10001": "Urbanizacion Santa Rosa",
+      "ARPR-10002": "Local comercial en avenida principal",
+      "ARPR-10003": "Apartamento cerca de Isla Verde"
+    };
+    var dates = {
+      "ARPR-10001": "2026-06-24",
+      "ARPR-10002": "2026-06-27",
+      "ARPR-10003": "2026-07-02"
+    };
+    var quote = summary.id === "ARPR-10002" ? {
+      QuoteId: "Q-ARPR-10001",
+      DescripcionTrabajo: "Preparacion, correcciones menores y pintura exterior de fachada comercial.",
+      Materiales: 420,
+      ManoObra: 1300,
+      OtrosCostos: 180,
+      Descuento: 50,
+      Tax: 0,
+      Total: 1850,
+      TiempoEstimado: "2 a 3 dias",
+      Validez: "15 dias",
+      Notas: "Incluye materiales estandar, proteccion de areas y limpieza basica.",
+      OpcionesPago: "ATH Movil | Zelle | Transferencia bancaria",
+      DepositoRequerido: "35% para separar fecha de comienzo",
+      NotasPago: "La duena confirma el metodo disponible antes de recibir deposito. El balance se coordina por etapa o al finalizar, segun alcance."
+    } : {};
+    return {
+      request: {
+        id: summary.id,
+        timestamp: summary.timestamp,
+        nombre: summary.nombre,
+        telefono: summary.telefono,
+        email: summary.email,
+        pueblo: summary.pueblo,
+        servicio: summary.servicio,
+        zonaProyecto: zones[summary.id] || summary.pueblo,
+        fechaPreferida: dates[summary.id] || "",
+        urgencia: summary.estado === "Pendiente" ? "Pronto" : "Normal",
+        descripcion: descriptions[summary.id] || "",
+        fotosUrls: summary.fotosUrls || [],
+        estado: summary.estado,
+        quoteId: quote.QuoteId || "",
+        totalCotizado: summary.totalCotizado,
+        updatedAt: summary.timestamp
+      },
+      notes: summary.id === "ARPR-10002" ? [
+        { Autor: "Equipo", Timestamp: summary.timestamp, Nota: "Confirmar horario antes de visitar el local." }
+      ] : [],
+      history: [
+        { Accion: "Consulta creada", Timestamp: summary.timestamp, Usuario: "Sistema", Detalle: "Registro demo inicial." }
+      ],
+      quote: quote
+    };
+  }
+
   function openDetail(requestId) {
     clearAlert();
+    var fallback = demoDetailForRequest(requestId);
+    if (fallback) {
+      state.detail = fallback;
+      renderDetail();
+      detailModal.classList.add("open");
+    }
     sendAction("getRequest", { requestId: requestId }).then(requireOk).then(function (data) {
+      if (fallback && data.request) {
+        if (!data.request.fotosUrls || !data.request.fotosUrls.length) {
+          data.request.fotosUrls = fallback.request.fotosUrls;
+        }
+        if (!data.quote || !Object.keys(data.quote).length) {
+          data.quote = fallback.quote;
+        } else {
+          data.quote.OpcionesPago = data.quote.OpcionesPago || fallback.quote.OpcionesPago;
+          data.quote.DepositoRequerido = data.quote.DepositoRequerido || fallback.quote.DepositoRequerido;
+          data.quote.NotasPago = data.quote.NotasPago || fallback.quote.NotasPago;
+        }
+      }
       state.detail = data;
       renderDetail();
       detailModal.classList.add("open");
     }).catch(function (error) {
-      setAlert("error", error.message);
+      if (!fallback) {
+        setAlert("error", error.message);
+      } else {
+        setAlert("error", error.message + " Mostrando ficha demo mientras se recupera la conexion.");
+      }
     });
   }
 
@@ -442,7 +541,7 @@
           kv("Total cotizado", money(request.totalCotizado)) +
         '</div></section>' +
       '</div>' +
-      '<section class="detail-panel"><h3>Descripcion</h3><p>' + esc(request.descripcion) + '</p><h3>Fotos</h3>' + renderPhotos(request.fotosUrls) + '</section>' +
+      '<section class="detail-panel"><h3>Descripcion</h3><p>' + esc(request.descripcion) + '</p><h3>Fotos del proyecto</h3>' + renderPhotos(request.fotosUrls) + '</section>' +
       renderStatusPanel(request) +
       renderNotesPanel(state.detail.notes || []) +
       renderQuotePanel(quote) +
@@ -454,8 +553,11 @@
 
   function renderPhotos(urls) {
     if (!urls || !urls.length) return '<p>No hay fotos adjuntas.</p>';
-    return '<div class="photo-links">' + urls.map(function (url, index) {
-      return '<a href="' + esc(url) + '" target="_blank" rel="noopener">Foto ' + (index + 1) + '</a>';
+    return '<div class="photo-links quote-photo-grid">' + urls.map(function (url, index) {
+      return '<a class="quote-photo-card" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+        '<img src="' + esc(url) + '" alt="Foto de proyecto ' + (index + 1) + '">' +
+        '<span>Foto ' + (index + 1) + '</span>' +
+      '</a>';
     }).join("") + '</div>';
   }
 
@@ -495,9 +597,26 @@
       '</section>';
   }
 
+  function quotePaymentOptions(quote) {
+    var raw = quote.OpcionesPago || "";
+    var options = String(raw).split("|").map(function (item) {
+      return item.trim();
+    }).filter(Boolean);
+    return options.length ? options : ["ATH Movil", "Zelle", "Transferencia bancaria"];
+  }
+
+  function paymentChecked(quote, option) {
+    return quotePaymentOptions(quote).indexOf(option) !== -1 ? " checked" : "";
+  }
+
   function renderQuotePanel(quote) {
+    var request = state.detail.request;
     return '<section class="detail-panel">' +
       '<h3>Cotizacion</h3>' +
+      '<div class="quote-media-preview">' +
+        '<strong>Fotos incluidas en la propuesta</strong>' +
+        renderPhotos(request.fotosUrls) +
+      '</div>' +
       '<form id="quoteForm">' +
         '<div class="form-grid">' +
           '<label class="wide">Descripcion del trabajo<textarea name="workDescription" rows="4" required>' + esc(quote.DescripcionTrabajo || "") + '</textarea></label>' +
@@ -509,6 +628,18 @@
           '<label>Tiempo estimado<input name="estimatedTime" value="' + esc(quote.TiempoEstimado || "") + '"></label>' +
           '<label>Validez<input name="validUntil" value="' + esc(quote.Validez || "15 dias") + '"></label>' +
           '<label class="wide">Notas de la cotizacion<textarea name="quoteNotes" rows="3">' + esc(quote.Notas || "") + '</textarea></label>' +
+          '<div class="wide quote-option-block">' +
+            '<span>Opciones de pago para enviar con la cotizacion</span>' +
+            '<div class="payment-choice-grid">' +
+              '<label><input name="paymentOptions" type="checkbox" value="ATH Movil"' + paymentChecked(quote, "ATH Movil") + '> ATH Movil</label>' +
+              '<label><input name="paymentOptions" type="checkbox" value="Zelle"' + paymentChecked(quote, "Zelle") + '> Zelle</label>' +
+              '<label><input name="paymentOptions" type="checkbox" value="Transferencia bancaria"' + paymentChecked(quote, "Transferencia bancaria") + '> Transferencia bancaria</label>' +
+              '<label><input name="paymentOptions" type="checkbox" value="Cheque"' + paymentChecked(quote, "Cheque") + '> Cheque</label>' +
+              '<label><input name="paymentOptions" type="checkbox" value="Efectivo"' + paymentChecked(quote, "Efectivo") + '> Efectivo</label>' +
+            '</div>' +
+          '</div>' +
+          '<label>Deposito requerido<input name="depositRequired" value="' + esc(quote.DepositoRequerido || "A coordinar con la duena") + '"></label>' +
+          '<label class="wide">Notas de pago<textarea name="paymentNotes" rows="3">' + esc(quote.NotasPago || "La duena confirma la forma de pago disponible, deposito y balance antes de comenzar.") + '</textarea></label>' +
         '</div>' +
         '<div class="quote-total"><span>Total automatico</span><strong id="quoteTotal">$0.00</strong></div>' +
         '<div class="row-actions">' +
@@ -544,7 +675,10 @@
       tax: data.get("tax"),
       estimatedTime: String(data.get("estimatedTime") || "").trim(),
       validUntil: String(data.get("validUntil") || "").trim(),
-      quoteNotes: String(data.get("quoteNotes") || "").trim()
+      quoteNotes: String(data.get("quoteNotes") || "").trim(),
+      paymentOptions: data.getAll("paymentOptions"),
+      depositRequired: String(data.get("depositRequired") || "").trim(),
+      paymentNotes: String(data.get("paymentNotes") || "").trim()
     };
   }
 

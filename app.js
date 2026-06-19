@@ -14,6 +14,31 @@
   var formAlert = document.getElementById("formAlert");
   var submitBtn = document.getElementById("submitBtn");
 
+  function appSections() {
+    return Array.prototype.slice.call(document.querySelectorAll("[data-app-section]"));
+  }
+
+  function appNavButtons() {
+    return Array.prototype.slice.call(document.querySelectorAll("[data-app-target]"));
+  }
+
+  function showAppSection(sectionId) {
+    var targetId = sectionId || "inicio";
+    var sections = appSections();
+    var target = document.querySelector('[data-app-section="' + targetId + '"]');
+    if (!target) return;
+    sections.forEach(function (section) {
+      section.classList.toggle("active", section === target);
+    });
+    appNavButtons().forEach(function (button) {
+      button.classList.toggle("active", button.getAttribute("data-app-target") === targetId);
+    });
+    closeMenu();
+    if (history.replaceState) {
+      history.replaceState(null, "", "#" + targetId);
+    }
+  }
+
   function endpointUrl() {
     return (DEFAULT_ENDPOINT_URL || "").trim();
   }
@@ -208,6 +233,16 @@
     toggle.setAttribute("aria-expanded", "false");
   }
 
+  function bindAppNavigation() {
+    appNavButtons().forEach(function (button) {
+      button.addEventListener("click", function () {
+        showAppSection(button.getAttribute("data-app-target"));
+      });
+    });
+    var initial = (window.location.hash || "#inicio").replace("#", "");
+    showAppSection(initial);
+  }
+
   function bindMenu() {
     var header = document.querySelector(".site-header");
     var toggle = document.querySelector(".menu-toggle");
@@ -216,7 +251,7 @@
       var isOpen = header.classList.toggle("nav-open");
       toggle.setAttribute("aria-expanded", String(isOpen));
     });
-    document.querySelectorAll(".top-nav a").forEach(function (link) {
+    document.querySelectorAll(".top-nav a, .top-nav button").forEach(function (link) {
       link.addEventListener("click", closeMenu);
     });
   }
@@ -245,7 +280,7 @@
         var select = form && form.elements.serviceType;
         if (!select) return;
         select.value = button.getAttribute("data-service");
-        document.getElementById("consulta").scrollIntoView({ behavior: "smooth", block: "start" });
+        showAppSection("consulta");
         window.setTimeout(function () {
           select.focus({ preventScroll: true });
         }, 450);
@@ -294,6 +329,7 @@
   if (photoInput) photoInput.addEventListener("change", renderPhotoPreview);
   if (form) form.addEventListener("submit", handleSubmit);
   bindMenu();
+  bindAppNavigation();
   bindReveal();
   bindServiceButtons();
   bindServiceFilters();
