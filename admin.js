@@ -661,11 +661,16 @@
     renderPreviewDashboard();
     return Promise.all([
       sendAction("getDashboardStats", {}).then(requireOk),
-      sendAction("listRequests", {}).then(requireOk)
+      sendAction("listRequests", {}).then(requireOk),
+      sendAction("listSchedule", {}).then(requireOk)
     ]).then(function (results) {
       var liveRequests = results[1].requests || [];
       state.requests = liveRequests.length ? liveRequests : DEMO_REQUESTS.slice();
       state.stats = liveRequests.length ? (results[0].stats || {}) : calculateStats(state.requests);
+      if (Array.isArray(results[2].events)) {
+        state.schedule = results[2].events.length ? results[2].events : state.schedule;
+        saveScheduleEvents();
+      }
       renderStats();
       renderOperations();
       renderRequests();
@@ -1988,17 +1993,20 @@
           setAlert("error", "Fecha y hora son requeridas para la agenda.");
           return;
         }
-        var existing = (state.schedule || []).filter(function (item) { return item.id === payload.id; })[0];
-        if (existing) {
-          Object.assign(existing, payload);
-        } else {
-          state.schedule.push(payload);
-        }
-        saveScheduleEvents();
-        clearScheduleForm();
-        renderSchedule();
-        setAlert("success", "Evento de agenda guardado.");
-        logActivity("Agenda actualizada", payload.type + " para " + (payload.requestId || "evento interno") + ".");
+        sendAction("upsertSchedule", payload).then(requireOk).then(function (data) {
+          var saved = data.event || payload;
+          var existing = (state.schedule || []).filter(function (item) { return item.id === saved.id; })[0];
+          if (existing) Object.assign(existing, saved);
+          else state.schedule.push(saved);
+          saveScheduleEvents();
+          clearScheduleForm();
+          renderSchedule();
+          setAlert("success", "Evento de agenda guardado.");
+          logActivity("Agenda actualizada", saved.type + " para " + (saved.requestId || "evento interno") + ".");
+          return loadDashboard();
+        }).catch(function (error) {
+          setAlert("error", error.message);
+        });
       });
     }
 
@@ -2034,20 +2042,28 @@
           return;
         }
         if (event.target.closest("[data-complete-schedule]")) {
-          scheduleEvent.status = "Completado";
-          scheduleEvent.updatedAt = localTimestamp();
-          saveScheduleEvents();
-          renderSchedule();
-          setAlert("success", "Evento marcado como completado.");
-          logActivity("Agenda completada", eventId + " marcado como completado.");
+          var completed = Object.assign({}, scheduleEvent, { status: "Completado", updatedAt: localTimestamp() });
+          sendAction("upsertSchedule", completed).then(requireOk).then(function (data) {
+            Object.assign(scheduleEvent, data.event || completed);
+            saveScheduleEvents();
+            renderSchedule();
+            setAlert("success", "Evento marcado como completado.");
+            logActivity("Agenda completada", eventId + " marcado como completado.");
+          }).catch(function (error) {
+            setAlert("error", error.message);
+          });
           return;
         }
         if (event.target.closest("[data-delete-schedule]")) {
-          state.schedule = state.schedule.filter(function (item) { return item.id !== eventId; });
-          saveScheduleEvents();
-          renderSchedule();
-          setAlert("success", "Evento borrado de la agenda.");
-          logActivity("Agenda borrada", eventId + " fue eliminado.");
+          sendAction("deleteSchedule", { id: eventId }).then(requireOk).then(function () {
+            state.schedule = state.schedule.filter(function (item) { return item.id !== eventId; });
+            saveScheduleEvents();
+            renderSchedule();
+            setAlert("success", "Evento borrado de la agenda.");
+            logActivity("Agenda borrada", eventId + " fue eliminado.");
+          }).catch(function (error) {
+            setAlert("error", error.message);
+          });
         }
       });
     });
