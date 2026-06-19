@@ -30,6 +30,9 @@ for (const file of requiredFiles) {
   if (forbidden.test(text)) {
     throw new Error(`Forbidden unfinished marker found in ${file}`);
   }
+  if (text.includes("`r`n")) {
+    throw new Error(`Literal newline token found in ${file}`);
+  }
 }
 
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
