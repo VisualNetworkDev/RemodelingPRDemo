@@ -6,8 +6,8 @@
   <title>Panel operativo | Atlas Remodeling PR</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="admin-body">
-  <header class="site-header">
+<body class="admin-body admin-console-page" data-admin-view="dashboard">
+  <header class="site-header admin-console-header">
     <a class="brand" href="index.html">
       <span class="brand-mark">AR</span>
       <span>Atlas Remodeling PR</span>
@@ -17,39 +17,68 @@
       <span></span>
       <span></span>
     </button>
-    <nav id="adminNav" class="top-nav" aria-label="Panel">
+    <nav id="adminNav" class="top-nav admin-top-nav" aria-label="Panel">
+      <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
+      <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
+      <button class="admin-tab" type="button" data-admin-tab="quotes">Cotizaciones</button>
+      <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
+      <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
+      <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
+      <button class="admin-tab" type="button" data-admin-tab="settings">Ajustes</button>
       <a href="index.html">Pagina publica</a>
-      <a href="#resumen">Resumen</a>
-      <a href="#consultas">Consultas</a>
       <button id="refreshBtn" class="btn secondary small" type="button">Actualizar</button>
     </nav>
   </header>
 
-  <section class="admin-hero">
-    <div>
-      <p class="eyebrow">Panel operativo</p>
-      <h1>Consultas, estados, notas y cotizaciones en una sola vista.</h1>
-    </div>
-    <div class="admin-hero-card">
-      <span>Vista demo</span>
-      <strong>Sin acceso bloqueado</strong>
-    </div>
-  </section>
+  <nav class="admin-mobile-dock" aria-label="Menu administrativo movil">
+    <button class="admin-tab" type="button" data-admin-tab="dashboard">Resumen</button>
+    <button class="admin-tab" type="button" data-admin-tab="requests">Consultas</button>
+    <button class="admin-tab" type="button" data-admin-tab="quotes">Cotiza</button>
+    <button class="admin-tab" type="button" data-admin-tab="payments">Pagos</button>
+    <button class="admin-tab" type="button" data-admin-tab="emails">Correos</button>
+    <button class="admin-tab" type="button" data-admin-tab="users">Usuarios</button>
+  </nav>
 
-  <main id="resumen">
-    <section id="adminShell" class="admin-shell">
-      <div class="admin-toolbar">
-        <div>
-          <p class="eyebrow">Dashboard</p>
-          <h2>Resumen de actividad</h2>
-        </div>
-        <div class="row-actions">
-          <button class="btn secondary" type="button" data-panel-jump="#consultas">Ver consultas</button>
-        </div>
+  <main id="adminShell" class="admin-workspace">
+    <section class="admin-command-bar" aria-label="Estado del panel">
+      <div>
+        <p class="eyebrow" id="adminViewEyebrow">Operacion</p>
+        <h1 id="adminViewTitle">Panel de gestion</h1>
+        <p id="adminViewSubtitle">Control de consultas, cotizaciones, pagos, correos, usuarios y ajustes del negocio.</p>
       </div>
+      <div class="admin-command-actions">
+        <button class="btn secondary small" type="button" data-admin-tab="requests">Abrir bandeja</button>
+        <button class="btn primary small" type="button" data-admin-tab="quotes">Preparar cotizacion</button>
+      </div>
+    </section>
 
-      <div id="adminAlert" class="admin-alert" role="status"></div>
+    <div id="adminAlert" class="admin-alert" role="status"></div>
+
+    <section class="admin-view" data-admin-panel="dashboard">
       <div id="statsGrid" class="stat-grid"></div>
+
+      <section class="admin-module-grid" aria-label="Accesos operativos">
+        <article class="admin-module-card">
+          <span>Consultas</span>
+          <strong>Bandeja con filtros, estados y detalle completo.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="requests">Revisar</button>
+        </article>
+        <article class="admin-module-card">
+          <span>Cotizaciones</span>
+          <strong>Propuestas con fotos, materiales, labor y opciones de pago.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="quotes">Gestionar</button>
+        </article>
+        <article class="admin-module-card">
+          <span>Pagos</span>
+          <strong>Metodos, deposito, instrucciones y confirmacion de balance.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="payments">Configurar</button>
+        </article>
+        <article class="admin-module-card">
+          <span>Usuarios</span>
+          <strong>Roles y permisos listos para activar controles por equipo.</strong>
+          <button class="btn secondary small" type="button" data-admin-tab="users">Administrar</button>
+        </article>
+      </section>
 
       <section class="ops-grid" aria-label="Resumen operativo extendido">
         <article class="admin-card ops-card pipeline-card">
@@ -83,56 +112,281 @@
           <div id="serviceMix" class="service-mix"></div>
         </article>
       </section>
+    </section>
 
-      <section id="consultas" class="admin-section">
-        <div class="admin-toolbar compact">
-          <div>
-            <p class="eyebrow">Bandeja</p>
-            <h2>Consultas recibidas</h2>
+    <section class="admin-view" data-admin-panel="requests" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Bandeja</p>
+          <h2>Consultas recibidas</h2>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <label>Buscar
+          <input id="searchInput" placeholder="Nombre, telefono, pueblo, servicio o ID">
+        </label>
+        <label>Estado
+          <select id="statusFilter">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>Servicio
+          <select id="serviceFilter">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>Orden
+          <select id="sortOrder">
+            <option value="desc">Mas recientes</option>
+            <option value="asc">Mas antiguas</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Fecha</th>
+              <th>Contacto</th>
+              <th>Telefono</th>
+              <th>Pueblo</th>
+              <th>Servicio</th>
+              <th>Estado</th>
+              <th>Total</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody id="requestsTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="quotes" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Propuestas</p>
+          <h2>Cotizaciones con fotos y pago claro</h2>
+        </div>
+        <button class="btn secondary small" type="button" data-admin-tab="requests">Abrir consultas</button>
+      </div>
+      <div id="quoteConsole" class="quote-console-grid"></div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="payments" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Pagos</p>
+          <h2>Metodos, deposito y confirmacion</h2>
+        </div>
+      </div>
+      <div class="admin-two-col">
+        <form id="paymentSettingsForm" class="admin-card admin-settings-form">
+          <h3>Configuracion de pago</h3>
+          <div class="form-grid">
+            <label>Deposito por defecto
+              <input name="defaultDeposit" placeholder="35% para separar fecha">
+            </label>
+            <label>Nombre para pago
+              <input name="paymentName" placeholder="Nombre de la duena o negocio">
+            </label>
+            <label class="wide">Instrucciones para cotizaciones
+              <textarea name="paymentInstructions" rows="4"></textarea>
+            </label>
+            <label class="wide">Nota de confirmacion
+              <textarea name="confirmationNote" rows="3"></textarea>
+            </label>
           </div>
-        </div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar pagos</button>
+          </div>
+        </form>
 
-        <div class="filter-row">
-          <label>Buscar
-            <input id="searchInput" placeholder="Nombre, telefono, pueblo, servicio o ID">
-          </label>
-          <label>Estado
-            <select id="statusFilter">
-              <option value="">Todos</option>
-            </select>
-          </label>
-          <label>Servicio
-            <select id="serviceFilter">
-              <option value="">Todos</option>
-            </select>
-          </label>
-          <label>Orden
-            <select id="sortOrder">
-              <option value="desc">Mas recientes</option>
-              <option value="asc">Mas antiguas</option>
-            </select>
-          </label>
-        </div>
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Metodos activos</p>
+              <h3>Opciones disponibles</h3>
+            </div>
+          </div>
+          <div id="paymentMethodList" class="settings-list"></div>
+          <form id="addPaymentMethodForm" class="inline-admin-form">
+            <input name="methodName" placeholder="Agregar metodo de pago">
+            <button class="btn secondary small" type="submit">Agregar</button>
+          </form>
+        </section>
+      </div>
+    </section>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Telefono</th>
-                <th>Pueblo</th>
-                <th>Servicio</th>
-                <th>Estado</th>
-                <th>Total</th>
-                <th>Accion</th>
-              </tr>
-            </thead>
-            <tbody id="requestsTable"></tbody>
-          </table>
+    <section class="admin-view" data-admin-panel="emails" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Correos</p>
+          <h2>Mensajes del sistema</h2>
         </div>
-      </section>
+      </div>
+      <div class="admin-two-col">
+        <form id="emailSettingsForm" class="admin-card admin-settings-form">
+          <h3>Ajustes de envio</h3>
+          <div class="form-grid">
+            <label>Correo de respuesta
+              <input name="replyEmail" type="email">
+            </label>
+            <label>Nombre de firma
+              <input name="signatureName">
+            </label>
+            <label>Asunto de confirmacion
+              <input name="confirmationSubject">
+            </label>
+            <label>Asunto de cotizacion
+              <input name="quoteSubject">
+            </label>
+            <label class="wide">Firma comercial
+              <textarea name="emailSignature" rows="4"></textarea>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar correos</button>
+          </div>
+        </form>
+
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Plantillas</p>
+              <h3>Mensajes preparados</h3>
+            </div>
+          </div>
+          <div id="emailTemplateList" class="settings-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="users" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Equipo</p>
+          <h2>Usuarios y permisos</h2>
+        </div>
+      </div>
+      <div class="admin-two-col">
+        <form id="userForm" class="admin-card admin-settings-form">
+          <input type="hidden" name="userId">
+          <h3 id="userFormTitle">Agregar usuario</h3>
+          <div class="form-grid">
+            <label>Nombre
+              <input name="name" required>
+            </label>
+            <label>Correo
+              <input name="email" type="email" required>
+            </label>
+            <label>Rol
+              <select name="role">
+                <option>Duena</option>
+                <option>Supervisor</option>
+                <option>Cotizador</option>
+                <option>Asistente</option>
+              </select>
+            </label>
+            <label>Estado
+              <select name="status">
+                <option>Activo</option>
+                <option>Pausado</option>
+              </select>
+            </label>
+          </div>
+          <div class="permission-picker">
+            <span>Permisos</span>
+            <label><input type="checkbox" name="permissions" value="Consultas"> Consultas</label>
+            <label><input type="checkbox" name="permissions" value="Cotizaciones"> Cotizaciones</label>
+            <label><input type="checkbox" name="permissions" value="Pagos"> Pagos</label>
+            <label><input type="checkbox" name="permissions" value="Correos"> Correos</label>
+            <label><input type="checkbox" name="permissions" value="Ajustes"> Ajustes</label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar usuario</button>
+            <button id="clearUserForm" class="btn secondary" type="button">Limpiar</button>
+          </div>
+        </form>
+
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Permisos</p>
+              <h3>Equipo registrado</h3>
+            </div>
+          </div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th>Permisos</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="admin-view" data-admin-panel="settings" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">Ajustes</p>
+          <h2>Operacion y reglas del panel</h2>
+        </div>
+      </div>
+      <div class="admin-two-col">
+        <form id="operationsSettingsForm" class="admin-card admin-settings-form">
+          <h3>Informacion operativa</h3>
+          <div class="form-grid">
+            <label>Nombre comercial
+              <input name="businessName">
+            </label>
+            <label>Telefono de seguimiento
+              <input name="businessPhone">
+            </label>
+            <label>Zona de servicio
+              <input name="serviceArea">
+            </label>
+            <label>Validez por defecto
+              <input name="quoteValidity">
+            </label>
+            <label class="wide">Nota interna de proceso
+              <textarea name="processNote" rows="4"></textarea>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" type="submit">Guardar ajustes</button>
+          </div>
+        </form>
+
+        <section class="admin-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Catalogos</p>
+              <h3>Servicios y estados</h3>
+            </div>
+          </div>
+          <div class="settings-split">
+            <div>
+              <h4>Servicios activos</h4>
+              <div id="serviceSettingsList" class="chip-list"></div>
+            </div>
+            <div>
+              <h4>Estados del flujo</h4>
+              <div id="statusSettingsList" class="chip-list"></div>
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
   </main>
 
