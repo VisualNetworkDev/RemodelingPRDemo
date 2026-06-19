@@ -73,12 +73,96 @@
     }
   ];
 
+  var ADMIN_VIEWS = {
+    dashboard: {
+      eyebrow: "Operacion",
+      title: "Panel de gestion",
+      subtitle: "Control de consultas, cotizaciones, pagos, correos, usuarios y ajustes del negocio."
+    },
+    requests: {
+      eyebrow: "Bandeja",
+      title: "Consultas recibidas",
+      subtitle: "Filtra solicitudes, abre detalles, actualiza estados y prepara cotizaciones."
+    },
+    quotes: {
+      eyebrow: "Propuestas",
+      title: "Cotizaciones",
+      subtitle: "Revisa proyectos con fotos, costos, deposito y envio de propuesta."
+    },
+    payments: {
+      eyebrow: "Pagos",
+      title: "Configuracion de pagos",
+      subtitle: "Metodos activos, deposito por defecto e instrucciones para propuestas."
+    },
+    emails: {
+      eyebrow: "Correos",
+      title: "Mensajes del sistema",
+      subtitle: "Asuntos, firma y plantillas para confirmaciones y cotizaciones."
+    },
+    users: {
+      eyebrow: "Equipo",
+      title: "Usuarios y permisos",
+      subtitle: "Roles preparados para separar permisos cuando se active el acceso por usuario."
+    },
+    settings: {
+      eyebrow: "Ajustes",
+      title: "Reglas operativas",
+      subtitle: "Servicios, estados, zona de trabajo y reglas internas del panel."
+    }
+  };
+
+  var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
+
+  var DEFAULT_ADMIN_SETTINGS = {
+    payments: {
+      defaultDeposit: "35% para separar fecha de comienzo",
+      paymentName: "Atlas Remodeling PR",
+      paymentInstructions: "La forma de pago se coordina antes de recibir deposito. El balance se confirma por etapa o al finalizar, segun el alcance.",
+      confirmationNote: "La fecha se confirma cuando la duena valida el deposito o el acuerdo de pago.",
+      methods: [
+        { id: "PAY-ATH", name: "ATH Movil", status: "Activo", details: "Disponible para deposito y pagos rapidos." },
+        { id: "PAY-ZELLE", name: "Zelle", status: "Activo", details: "Confirmar correo o telefono antes de enviar." },
+        { id: "PAY-BANK", name: "Transferencia bancaria", status: "Activo", details: "Se comparte solo cuando la propuesta sea aprobada." },
+        { id: "PAY-CASH", name: "Efectivo", status: "Activo", details: "Disponible para visitas y balances finales." }
+      ]
+    },
+    emails: {
+      replyEmail: "info@atlasremodelingpr.com",
+      signatureName: "Atlas Remodeling PR",
+      confirmationSubject: "Recibimos tu solicitud de evaluacion",
+      quoteSubject: "Cotizacion de proyecto - Atlas Remodeling PR",
+      emailSignature: "Gracias por considerar a Atlas Remodeling PR. Coordinamos cada detalle antes de comenzar el trabajo.",
+      templates: [
+        { id: "TPL-CONF", name: "Confirmacion de solicitud", status: "Activo", summary: "Mensaje automatico cuando entra una consulta nueva." },
+        { id: "TPL-QUOTE", name: "Cotizacion enviada", status: "Activo", summary: "Propuesta con fotos, total, deposito y opciones de pago." },
+        { id: "TPL-STATUS", name: "Cambio de estado", status: "Activo", summary: "Actualizacion breve cuando el proyecto cambia de fase." }
+      ]
+    },
+    users: [
+      { id: "USR-001", name: "Duena del negocio", email: "owner@atlasremodelingpr.com", role: "Duena", status: "Activo", permissions: ["Consultas", "Cotizaciones", "Pagos", "Correos", "Ajustes"] },
+      { id: "USR-002", name: "Coordinador de proyectos", email: "coordinador@atlasremodelingpr.com", role: "Supervisor", status: "Activo", permissions: ["Consultas", "Cotizaciones", "Correos"] },
+      { id: "USR-003", name: "Asistente administrativo", email: "asistente@atlasremodelingpr.com", role: "Asistente", status: "Pausado", permissions: ["Consultas"] }
+    ],
+    operations: {
+      businessName: "Atlas Remodeling PR",
+      businessPhone: "+1 787 555 0120",
+      serviceArea: "Puerto Rico",
+      quoteValidity: "15 dias",
+      processNote: "Confirmar alcance, fotos, fecha disponible, deposito y balance antes de comenzar."
+    }
+  };
+
   var state = {
     requests: [],
     stats: {},
-    detail: null
+    detail: null,
+    adminSettings: loadAdminSettings(),
+    adminView: "dashboard"
   };
 
+  var adminViewEyebrow = document.getElementById("adminViewEyebrow");
+  var adminViewTitle = document.getElementById("adminViewTitle");
+  var adminViewSubtitle = document.getElementById("adminViewSubtitle");
   var adminAlert = document.getElementById("adminAlert");
   var statsGrid = document.getElementById("statsGrid");
   var pipelineBoard = document.getElementById("pipelineBoard");
@@ -95,9 +179,71 @@
   var detailBody = document.getElementById("detailBody");
   var detailTitle = document.getElementById("detailTitle");
   var closeDetailBtn = document.getElementById("closeDetailBtn");
+  var quoteConsole = document.getElementById("quoteConsole");
+  var paymentSettingsForm = document.getElementById("paymentSettingsForm");
+  var addPaymentMethodForm = document.getElementById("addPaymentMethodForm");
+  var paymentMethodList = document.getElementById("paymentMethodList");
+  var emailSettingsForm = document.getElementById("emailSettingsForm");
+  var emailTemplateList = document.getElementById("emailTemplateList");
+  var userForm = document.getElementById("userForm");
+  var clearUserFormBtn = document.getElementById("clearUserForm");
+  var usersTable = document.getElementById("usersTable");
+  var userFormTitle = document.getElementById("userFormTitle");
+  var operationsSettingsForm = document.getElementById("operationsSettingsForm");
+  var serviceSettingsList = document.getElementById("serviceSettingsList");
+  var statusSettingsList = document.getElementById("statusSettingsList");
 
   function endpointUrl() {
     return (DEFAULT_ENDPOINT_URL || "").trim();
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function mergeAdminSettings(saved) {
+    var base = clone(DEFAULT_ADMIN_SETTINGS);
+    if (!saved || typeof saved !== "object") return base;
+    base.payments = Object.assign(base.payments, saved.payments || {});
+    base.emails = Object.assign(base.emails, saved.emails || {});
+    base.operations = Object.assign(base.operations, saved.operations || {});
+    if (Array.isArray(saved.payments && saved.payments.methods)) base.payments.methods = saved.payments.methods;
+    if (Array.isArray(saved.emails && saved.emails.templates)) base.emails.templates = saved.emails.templates;
+    if (Array.isArray(saved.users)) base.users = saved.users;
+    return base;
+  }
+
+  function loadAdminSettings() {
+    try {
+      return mergeAdminSettings(JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || "null"));
+    } catch (error) {
+      return clone(DEFAULT_ADMIN_SETTINGS);
+    }
+  }
+
+  function saveAdminSettings() {
+    localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(state.adminSettings));
+  }
+
+  function nextId(prefix, rows) {
+    var number = (rows || []).reduce(function (top, item) {
+      var match = String(item.id || "").match(/(\d+)$/);
+      return Math.max(top, match ? Number(match[1]) : 0);
+    }, 0) + 1;
+    return prefix + "-" + String(number).padStart(3, "0");
+  }
+
+  function checkedValues(form, name) {
+    return Array.prototype.slice.call(form.querySelectorAll('input[name="' + name + '"]:checked')).map(function (input) {
+      return input.value;
+    });
+  }
+
+  function setCheckedValues(form, name, values) {
+    var selected = values || [];
+    Array.prototype.slice.call(form.querySelectorAll('input[name="' + name + '"]')).forEach(function (input) {
+      input.checked = selected.indexOf(input.value) !== -1;
+    });
   }
 
   function esc(value) {
@@ -203,11 +349,13 @@
       renderStats();
       renderOperations();
       renderRequests();
+      renderAdminTools();
     }).catch(function (error) {
       setAlert("error", error.message + " Mostrando datos demo mientras se recupera la conexion.");
       renderStats();
       renderOperations();
       renderRequests();
+      renderAdminTools();
     });
   }
 
@@ -223,6 +371,7 @@
     renderStats();
     renderOperations();
     renderRequests();
+    renderAdminTools();
   }
 
   function calculateStats(rows) {
@@ -256,6 +405,131 @@
     renderServiceMix();
   }
 
+  function renderAdminTools() {
+    renderQuoteConsole();
+    renderPaymentSettings();
+    renderEmailSettings();
+    renderUsers();
+    renderOperationsSettings();
+  }
+
+  function quoteStatusLabel(request) {
+    if (request.estado === "Cotizacion enviada" || Number(request.totalCotizado || 0) > 0) return "Enviada";
+    if (request.estado === "Evaluacion programada") return "Lista para preparar";
+    if (request.estado === "Aprobado") return "Aprobada";
+    return "Pendiente";
+  }
+
+  function renderQuoteConsole() {
+    if (!quoteConsole) return;
+    var rows = state.requests.length ? state.requests : DEMO_REQUESTS;
+    quoteConsole.innerHTML = rows.map(function (request) {
+      var photo = request.fotosUrls && request.fotosUrls[0] ? request.fotosUrls[0] : "";
+      return '<article class="quote-console-card">' +
+        '<div class="quote-console-media">' +
+          (photo ? '<img src="' + esc(photo) + '" alt="Proyecto ' + esc(request.id) + '">' : '<span>Sin foto</span>') +
+        '</div>' +
+        '<div class="quote-console-copy">' +
+          '<span class="status-pill ' + statusClass(request.estado) + '">' + esc(quoteStatusLabel(request)) + '</span>' +
+          '<h3>' + esc(request.nombre) + '</h3>' +
+          '<p>' + esc(request.servicio) + ' - ' + esc(request.pueblo) + '</p>' +
+          '<strong>' + money(request.totalCotizado) + '</strong>' +
+          '<div class="row-actions">' +
+            '<button class="btn secondary small" type="button" data-open="' + esc(request.id) + '">Abrir ficha</button>' +
+            '<button class="btn primary small" type="button" data-open="' + esc(request.id) + '">Editar cotizacion</button>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+    }).join("");
+  }
+
+  function fillForm(form, values) {
+    if (!form || !values) return;
+    Object.keys(values).forEach(function (key) {
+      if (!form.elements[key] || Array.isArray(values[key])) return;
+      form.elements[key].value = values[key] || "";
+    });
+  }
+
+  function renderPaymentSettings() {
+    var settings = state.adminSettings.payments;
+    fillForm(paymentSettingsForm, settings);
+    if (!paymentMethodList) return;
+    paymentMethodList.innerHTML = (settings.methods || []).map(function (method) {
+      return '<article class="settings-item" data-payment-id="' + esc(method.id) + '">' +
+        '<div><strong>' + esc(method.name) + '</strong><span>' + esc(method.details || "") + '</span></div>' +
+        '<div class="row-actions">' +
+          '<button class="btn secondary small" type="button" data-toggle-payment>' + (method.status === "Activo" ? "Pausar" : "Activar") + '</button>' +
+          '<button class="btn danger small" type="button" data-delete-payment>Borrar</button>' +
+        '</div>' +
+      '</article>';
+    }).join("");
+  }
+
+  function renderEmailSettings() {
+    var settings = state.adminSettings.emails;
+    fillForm(emailSettingsForm, settings);
+    if (!emailTemplateList) return;
+    emailTemplateList.innerHTML = (settings.templates || []).map(function (template) {
+      return '<article class="settings-item" data-template-id="' + esc(template.id) + '">' +
+        '<div><strong>' + esc(template.name) + '</strong><span>' + esc(template.summary) + '</span></div>' +
+        '<span class="status-pill ' + (template.status === "Activo" ? "ok" : "warn") + '">' + esc(template.status) + '</span>' +
+      '</article>';
+    }).join("");
+  }
+
+  function clearUserForm() {
+    if (!userForm) return;
+    userForm.reset();
+    userForm.elements.userId.value = "";
+    if (userFormTitle) userFormTitle.textContent = "Agregar usuario";
+  }
+
+  function fillUserForm(userId) {
+    if (!userForm) return;
+    var user = state.adminSettings.users.filter(function (item) { return item.id === userId; })[0];
+    if (!user) return;
+    userForm.elements.userId.value = user.id;
+    userForm.elements.name.value = user.name || "";
+    userForm.elements.email.value = user.email || "";
+    userForm.elements.role.value = user.role || "Asistente";
+    userForm.elements.status.value = user.status || "Activo";
+    setCheckedValues(userForm, "permissions", user.permissions || []);
+    if (userFormTitle) userFormTitle.textContent = "Editar usuario";
+  }
+
+  function renderUsers() {
+    if (!usersTable) return;
+    var users = state.adminSettings.users || [];
+    usersTable.innerHTML = users.map(function (user) {
+      return '<tr data-user-id="' + esc(user.id) + '">' +
+        '<td data-label="Usuario"><strong>' + esc(user.name) + '</strong><br><small>' + esc(user.email) + '</small></td>' +
+        '<td data-label="Rol">' + esc(user.role) + '</td>' +
+        '<td data-label="Permisos">' + esc((user.permissions || []).join(", ")) + '</td>' +
+        '<td data-label="Estado"><span class="status-pill ' + (user.status === "Activo" ? "ok" : "warn") + '">' + esc(user.status) + '</span></td>' +
+        '<td data-label="Acciones"><div class="row-actions">' +
+          '<button class="btn secondary small" type="button" data-edit-user>Editar</button>' +
+          '<button class="btn secondary small" type="button" data-toggle-user>' + (user.status === "Activo" ? "Pausar" : "Activar") + '</button>' +
+          '<button class="btn danger small" type="button" data-delete-user>Borrar</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  function renderOperationsSettings() {
+    fillForm(operationsSettingsForm, state.adminSettings.operations);
+    if (serviceSettingsList) {
+      serviceSettingsList.innerHTML = SERVICES.map(function (service) {
+        return '<span>' + esc(service) + '</span>';
+      }).join("");
+    }
+    if (statusSettingsList) {
+      statusSettingsList.innerHTML = STATUSES.map(function (status) {
+        return '<span>' + esc(status) + '</span>';
+      }).join("");
+    }
+  }
+
   function renderPipeline() {
     if (!pipelineBoard) return;
     var activeRows = state.requests.filter(function (request) {
@@ -287,7 +561,7 @@
     return '<button class="pipeline-item" type="button" data-open="' + esc(request.id) + '">' +
       '<strong>' + esc(request.nombre) + '</strong>' +
       '<span>' + esc(request.servicio) + '</span>' +
-      '<small>' + esc(request.pueblo) + ' · ' + esc(request.id) + '</small>' +
+      '<small>' + esc(request.pueblo) + ' - ' + esc(request.id) + '</small>' +
     '</button>';
   }
 
@@ -313,7 +587,7 @@
       return '<button class="action-item" type="button" data-open="' + esc(request.id) + '">' +
         '<span>' + esc(label) + '</span>' +
         '<strong>' + esc(request.nombre) + '</strong>' +
-        '<small>' + esc(request.servicio) + ' · ' + esc(request.telefono) + '</small>' +
+        '<small>' + esc(request.servicio) + ' - ' + esc(request.telefono) + '</small>' +
       '</button>';
     }).join("");
   }
@@ -792,12 +1066,194 @@
       var isOpen = header.classList.toggle("nav-open");
       toggle.setAttribute("aria-expanded", String(isOpen));
     });
-    document.querySelectorAll(".top-nav a").forEach(function (link) {
+    document.querySelectorAll(".top-nav a, .top-nav button").forEach(function (link) {
       link.addEventListener("click", function () {
         header.classList.remove("nav-open");
         toggle.setAttribute("aria-expanded", "false");
       });
     });
+  }
+
+  function setAdminView(viewName) {
+    var next = ADMIN_VIEWS[viewName] ? viewName : "dashboard";
+    state.adminView = next;
+    document.body.setAttribute("data-admin-view", next);
+    document.querySelectorAll("[data-admin-panel]").forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-admin-panel") !== next;
+    });
+    document.querySelectorAll("[data-admin-tab]").forEach(function (button) {
+      var active = button.getAttribute("data-admin-tab") === next;
+      button.classList.toggle("active", active);
+      if (button.tagName === "BUTTON") button.setAttribute("aria-selected", String(active));
+    });
+    var copy = ADMIN_VIEWS[next];
+    if (adminViewEyebrow) adminViewEyebrow.textContent = copy.eyebrow;
+    if (adminViewTitle) adminViewTitle.textContent = copy.title;
+    if (adminViewSubtitle) adminViewSubtitle.textContent = copy.subtitle;
+  }
+
+  function bindAdminNavigation() {
+    document.addEventListener("click", function (event) {
+      var tab = event.target.closest("[data-admin-tab]");
+      if (!tab) return;
+      event.preventDefault();
+      setAdminView(tab.getAttribute("data-admin-tab"));
+    });
+    setAdminView("dashboard");
+  }
+
+  function bindPaymentSettings() {
+    if (paymentSettingsForm) {
+      paymentSettingsForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = new FormData(paymentSettingsForm);
+        state.adminSettings.payments.defaultDeposit = String(data.get("defaultDeposit") || "").trim();
+        state.adminSettings.payments.paymentName = String(data.get("paymentName") || "").trim();
+        state.adminSettings.payments.paymentInstructions = String(data.get("paymentInstructions") || "").trim();
+        state.adminSettings.payments.confirmationNote = String(data.get("confirmationNote") || "").trim();
+        saveAdminSettings();
+        renderPaymentSettings();
+        setAlert("success", "Configuracion de pagos guardada.");
+      });
+    }
+
+    if (addPaymentMethodForm) {
+      addPaymentMethodForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = new FormData(addPaymentMethodForm);
+        var name = String(data.get("methodName") || "").trim();
+        if (!name) return;
+        state.adminSettings.payments.methods.push({
+          id: nextId("PAY", state.adminSettings.payments.methods),
+          name: name,
+          status: "Activo",
+          details: "Metodo agregado para futuras cotizaciones."
+        });
+        addPaymentMethodForm.reset();
+        saveAdminSettings();
+        renderPaymentSettings();
+        setAlert("success", "Metodo de pago agregado.");
+      });
+    }
+
+    if (paymentMethodList) {
+      paymentMethodList.addEventListener("click", function (event) {
+        var item = event.target.closest("[data-payment-id]");
+        if (!item) return;
+        var methodId = item.getAttribute("data-payment-id");
+        var methods = state.adminSettings.payments.methods;
+        var method = methods.filter(function (entry) { return entry.id === methodId; })[0];
+        if (!method) return;
+        if (event.target.closest("[data-delete-payment]")) {
+          state.adminSettings.payments.methods = methods.filter(function (entry) { return entry.id !== methodId; });
+          setAlert("success", "Metodo de pago borrado.");
+        } else if (event.target.closest("[data-toggle-payment]")) {
+          method.status = method.status === "Activo" ? "Pausado" : "Activo";
+          setAlert("success", "Metodo de pago actualizado.");
+        } else {
+          return;
+        }
+        saveAdminSettings();
+        renderPaymentSettings();
+      });
+    }
+  }
+
+  function bindEmailSettings() {
+    if (!emailSettingsForm) return;
+    emailSettingsForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var data = new FormData(emailSettingsForm);
+      state.adminSettings.emails.replyEmail = String(data.get("replyEmail") || "").trim();
+      state.adminSettings.emails.signatureName = String(data.get("signatureName") || "").trim();
+      state.adminSettings.emails.confirmationSubject = String(data.get("confirmationSubject") || "").trim();
+      state.adminSettings.emails.quoteSubject = String(data.get("quoteSubject") || "").trim();
+      state.adminSettings.emails.emailSignature = String(data.get("emailSignature") || "").trim();
+      saveAdminSettings();
+      renderEmailSettings();
+      setAlert("success", "Configuracion de correos guardada.");
+    });
+  }
+
+  function bindUsers() {
+    if (clearUserFormBtn) clearUserFormBtn.addEventListener("click", clearUserForm);
+
+    if (userForm) {
+      userForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = new FormData(userForm);
+        var id = String(data.get("userId") || "").trim();
+        var user = {
+          id: id || nextId("USR", state.adminSettings.users),
+          name: String(data.get("name") || "").trim(),
+          email: String(data.get("email") || "").trim(),
+          role: String(data.get("role") || "Asistente"),
+          status: String(data.get("status") || "Activo"),
+          permissions: checkedValues(userForm, "permissions")
+        };
+        if (!user.permissions.length) user.permissions = ["Consultas"];
+        var existing = state.adminSettings.users.filter(function (item) { return item.id === user.id; })[0];
+        if (existing) {
+          Object.assign(existing, user);
+        } else {
+          state.adminSettings.users.push(user);
+        }
+        saveAdminSettings();
+        clearUserForm();
+        renderUsers();
+        setAlert("success", "Usuario guardado.");
+      });
+    }
+
+    if (usersTable) {
+      usersTable.addEventListener("click", function (event) {
+        var row = event.target.closest("[data-user-id]");
+        if (!row) return;
+        var userId = row.getAttribute("data-user-id");
+        var users = state.adminSettings.users;
+        var user = users.filter(function (entry) { return entry.id === userId; })[0];
+        if (!user) return;
+        if (event.target.closest("[data-edit-user]")) {
+          fillUserForm(userId);
+          return;
+        }
+        if (event.target.closest("[data-toggle-user]")) {
+          user.status = user.status === "Activo" ? "Pausado" : "Activo";
+          setAlert("success", "Usuario actualizado.");
+        } else if (event.target.closest("[data-delete-user]")) {
+          state.adminSettings.users = users.filter(function (entry) { return entry.id !== userId; });
+          if (userForm && userForm.elements.userId.value === userId) clearUserForm();
+          setAlert("success", "Usuario borrado.");
+        } else {
+          return;
+        }
+        saveAdminSettings();
+        renderUsers();
+      });
+    }
+  }
+
+  function bindOperationsSettings() {
+    if (!operationsSettingsForm) return;
+    operationsSettingsForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var data = new FormData(operationsSettingsForm);
+      state.adminSettings.operations.businessName = String(data.get("businessName") || "").trim();
+      state.adminSettings.operations.businessPhone = String(data.get("businessPhone") || "").trim();
+      state.adminSettings.operations.serviceArea = String(data.get("serviceArea") || "").trim();
+      state.adminSettings.operations.quoteValidity = String(data.get("quoteValidity") || "").trim();
+      state.adminSettings.operations.processNote = String(data.get("processNote") || "").trim();
+      saveAdminSettings();
+      renderOperationsSettings();
+      setAlert("success", "Ajustes operativos guardados.");
+    });
+  }
+
+  function bindAdminTools() {
+    bindPaymentSettings();
+    bindEmailSettings();
+    bindUsers();
+    bindOperationsSettings();
   }
 
   function bindEvents() {
@@ -817,22 +1273,24 @@
         if (button) openDetail(button.getAttribute("data-open"));
       });
     });
+    if (quoteConsole) {
+      quoteConsole.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-open]");
+        if (button) openDetail(button.getAttribute("data-open"));
+      });
+    }
     [searchInput, statusFilter, serviceFilter, sortOrder].forEach(function (node) {
       node.addEventListener("input", renderRequests);
       node.addEventListener("change", renderRequests);
-    });
-    document.querySelectorAll("[data-panel-jump]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        var target = document.querySelector(button.getAttribute("data-panel-jump"));
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
     });
   }
 
   function boot() {
     bindMenu();
+    bindAdminNavigation();
     initFilters();
     bindEvents();
+    bindAdminTools();
     renderPreviewDashboard();
     loadServices().then(loadDashboard);
   }
