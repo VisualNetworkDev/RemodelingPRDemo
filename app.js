@@ -8,6 +8,7 @@
   var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var submitting = false;
   var activeClientKey = "";
+  var currentPortalProject = null;
 
   var form = document.getElementById("estimateForm");
   var photoInput = document.getElementById("photoInput");
@@ -337,9 +338,20 @@
 
   function renderPortalQuote(project) {
     var quote = project.quote || {};
+    var approval = project.approval || {};
     if (!quote.quoteId) {
       return '<article class="portal-panel"><span>Cotizacion</span><strong>En preparacion</strong><p>El equipo revisa el alcance para preparar una propuesta.</p></article>';
     }
+    if (approval.approvalId) {
+      return '<article class="portal-panel portal-quote-panel portal-approved-panel">' +
+        '<span>Cotizacion aprobada</span>' +
+        '<strong>' + escapeHtml(quote.quoteId) + ' - ' + money(quote.total) + '</strong>' +
+        '<p>Seleccion registrada: ' + escapeHtml(approval.paymentMethod || "Metodo pendiente") + '.</p>' +
+        '<div class="portal-kv"><b>Estado de pago</b><em>' + escapeHtml(approval.status || "Pendiente de confirmacion") + '</em></div>' +
+        '<div class="portal-kv"><b>Registrado</b><em>' + escapeHtml(approval.timestamp || "Recibido") + '</em></div>' +
+      '</article>';
+    }
+    var methods = Array.isArray(quote.paymentOptions) && quote.paymentOptions.length ? quote.paymentOptions : ["ATH Movil", "Zelle", "Transferencia bancaria"];
     return '<article class="portal-panel portal-quote-panel">' +
       '<span>Cotizacion</span>' +
       '<strong>' + escapeHtml(quote.quoteId) + ' - ' + money(quote.total) + '</strong>' +
@@ -347,13 +359,27 @@
       '<div class="portal-kv"><b>Tiempo estimado</b><em>' + escapeHtml(quote.estimatedTime || "A coordinar") + '</em></div>' +
       '<div class="portal-kv"><b>Validez</b><em>' + escapeHtml(quote.validUntil || "15 dias") + '</em></div>' +
       '<div class="portal-kv"><b>Deposito</b><em>' + escapeHtml(quote.depositRequired || "A coordinar") + '</em></div>' +
-      '<div class="portal-payment-list">' + (quote.paymentOptions || []).map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join("") + '</div>' +
+      '<div class="portal-payment-list">' + methods.map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join("") + '</div>' +
       '<p>' + escapeHtml(quote.paymentNotes || "La forma de pago se confirma antes de comenzar.") + '</p>' +
+      '<form id="quoteApprovalForm" class="portal-approval-form">' +
+        '<h4>Aprobar propuesta</h4>' +
+        '<input type="hidden" name="requestId" value="' + escapeAttr(project.requestId) + '">' +
+        '<input type="hidden" name="quoteId" value="' + escapeAttr(quote.quoteId) + '">' +
+        '<label>Forma de pago<select name="paymentMethod" required>' +
+          methods.map(function (item) { return '<option value="' + escapeAttr(item) + '">' + escapeHtml(item) + '</option>'; }).join("") +
+        '</select></label>' +
+        '<label>Nombre<input name="name" autocomplete="name" required></label>' +
+        '<label>Telefono<input name="phone" inputmode="tel" autocomplete="tel" required></label>' +
+        '<label class="wide">Nota opcional<textarea name="message" rows="2" placeholder="Horario ideal, referencia o detalle para coordinar"></textarea></label>' +
+        '<label class="portal-check wide"><input name="acceptTerms" type="checkbox" required><span>Confirmo que deseo aprobar esta cotizacion y coordinar el pago seleccionado con la duena.</span></label>' +
+        '<button class="btn primary full" type="submit">Aprobar y coordinar pago</button>' +
+      '</form>' +
     '</article>';
   }
 
   function renderProjectPortal(project) {
     if (!projectPortalResult || !project) return;
+    currentPortalProject = project;
     projectPortalResult.innerHTML = '<div class="portal-result-head">' +
       '<div><span class="eyebrow">Proyecto</span><h3>' + escapeHtml(project.requestId) + '</h3><p>' + escapeHtml(project.service || "Servicio") + ' - ' + escapeHtml(project.city || "Puerto Rico") + '</p></div>' +
       '<span class="status-pill ' + statusTone(project.status) + '">' + escapeHtml(project.status || "Pendiente") + '</span>' +
@@ -368,6 +394,47 @@
     }).join("") + '</div>' +
     renderPortalQuote(project) +
     '<article class="portal-panel"><span>Fotos del proyecto</span>' + renderPortalPhotos(project.photos) + '</article>';
+  }
+
+  function handleQuoteApprovalSubmit(event) {
+    event.preventDefault();
+    var formNode = event.target;
+    var button = formNode.querySelector("button[type='submit']");
+    var data = new FormData(formNode);
+    var payload = {
+      requestId: String(data.get("requestId") || "").trim().toUpperCase(),
+      quoteId: String(data.get("quoteId") || "").trim(),
+      paymentMethod: String(data.get("paymentMethod") || "").trim(),
+      name: String(data.get("name") || "").trim(),
+      phone: String(data.get("phone") || "").trim(),
+      message: String(data.get("message") || "").trim(),
+      acceptTerms: data.get("acceptTerms") === "on"
+    };
+    if (!payload.requestId || !payload.quoteId || !payload.paymentMethod || !payload.name || !payload.phone) {
+      setPortalAlert("error", "Completa nombre, telefono y forma de pago.");
+      return;
+    }
+    if (!payload.acceptTerms) {
+      setPortalAlert("error", "Confirma que deseas aprobar la cotizacion.");
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Registrando...";
+    }
+    setPortalAlert("", "");
+    publicAction("approveQuote", payload).then(function (response) {
+      if (!response || !response.ok) throw new Error((response && response.message) || "No se pudo aprobar la cotizacion.");
+      renderProjectPortal(response.data.project || currentPortalProject);
+      setPortalAlert("success", "Cotizacion aprobada. La forma de pago quedo registrada para coordinacion.");
+    }).catch(function (error) {
+      setPortalAlert("error", error.message || "No se pudo aprobar la cotizacion.");
+    }).finally(function () {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Aprobar y coordinar pago";
+      }
+    });
   }
 
   function handlePortalSubmit(event) {
@@ -541,6 +608,13 @@
   if (photoInput) photoInput.addEventListener("change", renderPhotoPreview);
   if (form) form.addEventListener("submit", handleSubmit);
   if (projectPortalForm) projectPortalForm.addEventListener("submit", handlePortalSubmit);
+  if (projectPortalResult) {
+    projectPortalResult.addEventListener("submit", function (event) {
+      if (event.target && event.target.id === "quoteApprovalForm") {
+        handleQuoteApprovalSubmit(event);
+      }
+    });
+  }
   bindMenu();
   bindAppNavigation();
   bindReveal();

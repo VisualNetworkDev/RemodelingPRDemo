@@ -89,7 +89,7 @@ if ((indexHtml.match(/data-app-section=/g) || []).length < 7) {
   throw new Error("Public index must use app sections instead of one long scrolling page.");
 }
 
-for (const action of ["submitRequest", "getPublicProject", "renderProjectPortal", "handlePortalSubmit"]) {
+for (const action of ["submitRequest", "getPublicProject", "approveQuote", "renderProjectPortal", "handlePortalSubmit", "handleQuoteApprovalSubmit", "quoteApprovalForm"]) {
   if (!appJs.includes(action)) throw new Error(`Public app missing action ${action}`);
 }
 
@@ -105,7 +105,7 @@ if ((adminHtml.match(/data-admin-panel=/g) || []).length < 10) {
   throw new Error("Admin must use separated app sections for dashboard, requests, quotes, schedule, gallery, reports, payments, emails, users, and settings.");
 }
 
-for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
+for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "renderApprovalPanel", "approval-panel", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
 }
 

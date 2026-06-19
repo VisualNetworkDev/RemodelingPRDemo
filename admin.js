@@ -1493,7 +1493,9 @@
       history: [
         { Accion: "Consulta creada", Timestamp: summary.timestamp, Usuario: "Sistema", Detalle: "Registro demo inicial." }
       ],
-      quote: quote
+      quote: quote,
+      approval: {},
+      approvals: []
     };
   }
 
@@ -1561,6 +1563,7 @@
         '</div></section>' +
       '</div>' +
       '<section class="detail-panel"><h3>Descripcion</h3><p>' + esc(request.descripcion) + '</p><h3>Fotos del proyecto</h3>' + renderPhotos(request.fotosUrls) + '</section>' +
+      renderApprovalPanel(state.detail.approval || {}, state.detail.approvals || []) +
       renderStatusPanel(request) +
       renderNotesPanel(state.detail.notes || []) +
       renderQuotePanel(quote) +
@@ -1614,6 +1617,36 @@
         return '<article class="note-item"><strong>' + esc(note.Autor) + '</strong><small> ' + esc(formatTimestamp(note.Timestamp)) + '</small><p>' + esc(note.Nota) + '</p></article>';
       }).join("") : '<p>No hay notas internas.</p>') + '</div>' +
       '</section>';
+  }
+
+  function renderApprovalPanel(approval, approvals) {
+    var hasApproval = approval && approval.ApprovalId;
+    var rows = Array.isArray(approvals) ? approvals : [];
+    if (!hasApproval && !rows.length) {
+      return '<section class="detail-panel approval-panel">' +
+        '<h3>Aprobacion y pago</h3>' +
+        '<p>No hay aprobacion registrada desde el seguimiento publico.</p>' +
+      '</section>';
+    }
+    var active = hasApproval ? approval : rows[0];
+    return '<section class="detail-panel approval-panel">' +
+      '<h3>Aprobacion y pago</h3>' +
+      '<div class="kv-list">' +
+        kv("Aprobacion", active.ApprovalId) +
+        kv("Cotizacion", active.QuoteId) +
+        kv("Nombre", active.Nombre) +
+        kv("Telefono", active.Telefono) +
+        kv("Metodo", active.MetodoPago) +
+        kv("Total", money(active.Total)) +
+        kv("Deposito", active.Deposito) +
+        kv("Estado", active.Estado || "Pendiente de confirmacion") +
+        kv("Recibido", formatTimestamp(active.UpdatedAt || active.Timestamp)) +
+      '</div>' +
+      (active.Mensaje ? '<p><strong>Nota:</strong> ' + esc(active.Mensaje) + '</p>' : '') +
+      (rows.length > 1 ? '<div class="notes-list">' + rows.slice(1).map(function (item) {
+        return '<article class="note-item"><strong>' + esc(item.MetodoPago) + '</strong><small> ' + esc(formatTimestamp(item.UpdatedAt || item.Timestamp)) + '</small><p>' + esc(item.Estado || "") + '</p></article>';
+      }).join("") + '</div>' : '') +
+    '</section>';
   }
 
   function quotePaymentOptions(quote) {
