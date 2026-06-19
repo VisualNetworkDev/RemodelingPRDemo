@@ -73,6 +73,10 @@ if (!indexHtml.includes("galleryGrid") || !appJs.includes("listGallery")) {
   throw new Error("Public index must load gallery from the managed backend gallery.");
 }
 
+for (const marker of ["optimizeImageDataUrl", "readOptimizedPhoto", "OPTIMIZED_PHOTO_MAX_LENGTH", "mimeType: \"image/jpeg\""]) {
+  if (!appJs.includes(marker)) throw new Error(`Public photo uploads must stay optimized before backend submit: ${marker}`);
+}
+
 if ((indexHtml.match(/data-app-section=/g) || []).length < 6) {
   throw new Error("Public index must use app sections instead of one long scrolling page.");
 }
@@ -95,6 +99,10 @@ if ((adminHtml.match(/data-admin-panel=/g) || []).length < 8) {
 
 for (const marker of ["bindAdminNavigation", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
+}
+
+for (const marker of ["optimizeImageDataUrl", "readGalleryPhoto", "OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH", "mimeType: \"image/jpeg\""]) {
+  if (!adminJs.includes(marker)) throw new Error(`Admin gallery uploads must stay optimized before backend submit: ${marker}`);
 }
 
 console.log("Smoke checks passed");

@@ -4,6 +4,7 @@
   var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
   var MAX_PHOTOS = 5;
   var MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+  var OPTIMIZED_PHOTO_MAX_LENGTH = 850000;
   var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var submitting = false;
   var activeClientKey = "";
@@ -100,19 +101,86 @@
 
   function fileToDataUrl(file) {
     return new Promise(function (resolve, reject) {
+      if (!file) {
+        resolve("");
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function () {
-        resolve({
-          name: file.name,
-          size: file.size,
-          mimeType: file.type,
-          dataUrl: reader.result
-        });
+        resolve(String(reader.result || ""));
       };
       reader.onerror = function () {
         reject(new Error("No se pudo leer la foto " + file.name + "."));
       };
       reader.readAsDataURL(file);
+    });
+  }
+
+  function optimizeImageDataUrl(source, options) {
+    return new Promise(function (resolve, reject) {
+      if (!source) {
+        resolve("");
+        return;
+      }
+      var opts = options || {};
+      var img = new Image();
+      img.onload = function () {
+        var maxSide = Number(opts.maxSide || 1600);
+        var targetMaxLength = Number(opts.targetMaxLength || OPTIMIZED_PHOTO_MAX_LENGTH);
+        var quality = Number(opts.quality || 0.82);
+        var minSide = Number(opts.minSide || 700);
+        var ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * ratio));
+        canvas.height = Math.max(1, Math.round(img.height * ratio));
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#f7f4ed";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        var dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length > targetMaxLength && canvas.width > minSide && canvas.height > minSide) {
+          var next = document.createElement("canvas");
+          next.width = Math.max(1, Math.round(canvas.width * 0.86));
+          next.height = Math.max(1, Math.round(canvas.height * 0.86));
+          next.getContext("2d").drawImage(canvas, 0, 0, next.width, next.height);
+          canvas.width = next.width;
+          canvas.height = next.height;
+          canvas.getContext("2d").drawImage(next, 0, 0, canvas.width, canvas.height);
+          quality = Math.max(0.62, quality - 0.05);
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        if (dataUrl.length > targetMaxLength * 1.15) {
+          reject(new Error("La foto sigue demasiado pesada. Usa una imagen mas pequena."));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = function () {
+        reject(new Error("No se pudo procesar la foto."));
+      };
+      img.src = source;
+    });
+  }
+
+  function readOptimizedPhoto(file) {
+    return fileToDataUrl(file).then(function (source) {
+      return optimizeImageDataUrl(source, {
+        maxSide: 1600,
+        quality: 0.82,
+        targetMaxLength: OPTIMIZED_PHOTO_MAX_LENGTH,
+        minSide: 720
+      });
+    }).then(function (dataUrl) {
+      return {
+        name: String(file.name || "foto.jpg").replace(/\.[^.]+$/, "") + ".jpg",
+        originalName: file.name,
+        size: file.size,
+        optimizedSize: Math.round(dataUrl.length * 0.75),
+        mimeType: "image/jpeg",
+        dataUrl: dataUrl
+      };
     });
   }
 
@@ -207,7 +275,7 @@
     }
 
     setBusy(true);
-    Promise.all(files.map(fileToDataUrl))
+    Promise.all(files.map(readOptimizedPhoto))
       .then(function (photos) {
         payload.photos = photos;
         return submitEvaluation("submitRequest", payload);

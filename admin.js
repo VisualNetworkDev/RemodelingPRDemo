@@ -165,6 +165,7 @@
 
   var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
   var MAX_GALLERY_PHOTO_BYTES = 4 * 1024 * 1024;
+  var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
   var GALLERY_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
   var DEFAULT_ADMIN_SETTINGS = {
@@ -356,33 +357,95 @@
     return 0;
   }
 
-  function readGalleryPhoto(file) {
+  function fileToDataUrl(file) {
     return new Promise(function (resolve, reject) {
       if (!file) {
-        resolve(null);
-        return;
-      }
-      if (GALLERY_PHOTO_TYPES.indexOf(file.type) === -1) {
-        reject(new Error("La foto debe ser JPG, PNG o WEBP."));
-        return;
-      }
-      if (file.size > MAX_GALLERY_PHOTO_BYTES) {
-        reject(new Error("La foto excede 4 MB."));
+        resolve("");
         return;
       }
       var reader = new FileReader();
       reader.onload = function () {
-        resolve({
-          name: file.name,
-          size: file.size,
-          mimeType: file.type,
-          dataUrl: reader.result
-        });
+        resolve(String(reader.result || ""));
       };
       reader.onerror = function () {
         reject(new Error("No se pudo leer la foto."));
       };
       reader.readAsDataURL(file);
+    });
+  }
+
+  function optimizeImageDataUrl(source, options) {
+    return new Promise(function (resolve, reject) {
+      if (!source) {
+        resolve("");
+        return;
+      }
+      var opts = options || {};
+      var img = new Image();
+      img.onload = function () {
+        var maxSide = Number(opts.maxSide || 1700);
+        var targetMaxLength = Number(opts.targetMaxLength || OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH);
+        var quality = Number(opts.quality || 0.84);
+        var minSide = Number(opts.minSide || 760);
+        var ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * ratio));
+        canvas.height = Math.max(1, Math.round(img.height * ratio));
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#f7f4ed";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        var dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length > targetMaxLength && canvas.width > minSide && canvas.height > minSide) {
+          var next = document.createElement("canvas");
+          next.width = Math.max(1, Math.round(canvas.width * 0.86));
+          next.height = Math.max(1, Math.round(canvas.height * 0.86));
+          next.getContext("2d").drawImage(canvas, 0, 0, next.width, next.height);
+          canvas.width = next.width;
+          canvas.height = next.height;
+          canvas.getContext("2d").drawImage(next, 0, 0, canvas.width, canvas.height);
+          quality = Math.max(0.64, quality - 0.05);
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        if (dataUrl.length > targetMaxLength * 1.15) {
+          reject(new Error("La foto sigue demasiado pesada. Usa una imagen mas pequena."));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = function () {
+        reject(new Error("No se pudo procesar la foto."));
+      };
+      img.src = source;
+    });
+  }
+
+  function readGalleryPhoto(file) {
+    if (!file) return Promise.resolve(null);
+    if (GALLERY_PHOTO_TYPES.indexOf(file.type) === -1) {
+      return Promise.reject(new Error("La foto debe ser JPG, PNG o WEBP."));
+    }
+    if (file.size > MAX_GALLERY_PHOTO_BYTES) {
+      return Promise.reject(new Error("La foto excede 4 MB."));
+    }
+    return fileToDataUrl(file).then(function (source) {
+      return optimizeImageDataUrl(source, {
+        maxSide: 1700,
+        quality: 0.84,
+        targetMaxLength: OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH,
+        minSide: 780
+      });
+    }).then(function (dataUrl) {
+      return {
+        name: String(file.name || "galeria.jpg").replace(/\.[^.]+$/, "") + ".jpg",
+        originalName: file.name,
+        size: file.size,
+        optimizedSize: Math.round(dataUrl.length * 0.75),
+        mimeType: "image/jpeg",
+        dataUrl: dataUrl
+      };
     });
   }
 
