@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --ink: #151515;
   --ink-2: #242424;
   --muted: #626b75;
@@ -2641,6 +2641,7 @@ th {
 .admin-card,
 .admin-module-card,
 .quote-console-card {
+  min-width: 0;
   border: 1px solid rgba(21, 21, 21, .08);
   border-radius: 8px;
   background: #fff;
@@ -2719,6 +2720,10 @@ th {
   align-items: start;
 }
 
+.admin-two-col > * {
+  min-width: 0;
+}
+
 .admin-settings-form,
 .admin-card {
   padding: 18px;
@@ -2793,7 +2798,12 @@ th {
 }
 
 .compact-table table {
-  min-width: 760px;
+  min-width: min(760px, 100%);
+}
+
+.compact-table {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .settings-split {
@@ -2911,6 +2921,26 @@ th {
 
   .settings-item {
     align-items: stretch;
+  }
+
+  .admin-console-page .compact-table,
+  .admin-console-page .table-wrap {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .admin-console-page .compact-table table {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-console-page td {
+    grid-template-columns: minmax(92px, .36fr) minmax(0, 1fr);
+  }
+
+  .admin-console-page td > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 

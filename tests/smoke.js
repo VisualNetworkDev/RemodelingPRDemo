@@ -81,4 +81,16 @@ for (const action of ["listRequests", "getRequest", "updateStatus", "addInternal
   if (!adminJs.includes(action)) throw new Error(`Admin app missing action ${action}`);
 }
 
+for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
+  if (!adminHtml.includes(marker)) throw new Error(`Admin app missing operations marker ${marker}`);
+}
+
+if ((adminHtml.match(/data-admin-panel=/g) || []).length < 7) {
+  throw new Error("Admin must use separated app sections for dashboard, requests, quotes, payments, emails, users, and settings.");
+}
+
+for (const marker of ["bindAdminNavigation", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "data-delete-user", "data-delete-payment", "formatTimestamp"]) {
+  if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
+}
+
 console.log("Smoke checks passed");

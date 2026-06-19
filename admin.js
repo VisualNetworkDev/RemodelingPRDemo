@@ -260,6 +260,39 @@
     return "$" + (Number.isFinite(number) ? number : 0).toFixed(2);
   }
 
+  function formatTimestamp(value) {
+    var text = String(value || "").trim();
+    if (!text) return "";
+    var match24 = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (match24) {
+      var hour = Number(match24[4]);
+      var minute = match24[5];
+      var suffix = hour >= 12 ? "PM" : "AM";
+      var hour12 = hour % 12 || 12;
+      return match24[1] + "-" + match24[2] + "-" + match24[3] + " " + hour12 + ":" + minute + " " + suffix;
+    }
+    var match12 = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (match12) {
+      return match12[1] + "-" + match12[2] + "-" + match12[3] + " " + Number(match12[4]) + ":" + match12[5] + " " + match12[6].toUpperCase();
+    }
+    return text;
+  }
+
+  function timestampSortValue(value) {
+    var text = String(value || "").trim();
+    var match24 = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (match24) {
+      return new Date(Number(match24[1]), Number(match24[2]) - 1, Number(match24[3]), Number(match24[4]), Number(match24[5]), Number(match24[6] || 0)).getTime();
+    }
+    var match12 = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+    if (match12) {
+      var hour = Number(match12[4]) % 12;
+      if (match12[6].toUpperCase() === "PM") hour += 12;
+      return new Date(Number(match12[1]), Number(match12[2]) - 1, Number(match12[3]), hour, Number(match12[5]), 0).getTime();
+    }
+    return 0;
+  }
+
   function setAlert(type, message) {
     if (!adminAlert) return;
     adminAlert.className = "admin-alert show " + (type || "");
@@ -659,7 +692,7 @@
     });
     rows.sort(function (a, b) {
       var direction = sortOrder.value === "asc" ? 1 : -1;
-      return direction * String(a.timestamp || "").localeCompare(String(b.timestamp || ""));
+      return direction * (timestampSortValue(a.timestamp) - timestampSortValue(b.timestamp));
     });
     return rows;
   }
@@ -675,7 +708,7 @@
     requestsTable.innerHTML = rows.map(function (request) {
       return '<tr>' +
         '<td data-label="ID"><strong>' + esc(request.id) + '</strong></td>' +
-        '<td data-label="Fecha">' + esc(request.timestamp) + '</td>' +
+        '<td data-label="Fecha">' + esc(formatTimestamp(request.timestamp)) + '</td>' +
         '<td data-label="Cliente">' + esc(request.nombre) + '<br><small>' + esc(request.email) + '</small></td>' +
         '<td data-label="Telefono">' + esc(request.telefono) + '</td>' +
         '<td data-label="Pueblo">' + esc(request.pueblo) + '</td>' +
@@ -866,7 +899,7 @@
         '<button class="btn primary wide" type="submit">Guardar nota</button>' +
       '</form>' +
       '<div class="notes-list">' + (notes.length ? notes.map(function (note) {
-        return '<article class="note-item"><strong>' + esc(note.Autor) + '</strong><small> ' + esc(note.Timestamp) + '</small><p>' + esc(note.Nota) + '</p></article>';
+        return '<article class="note-item"><strong>' + esc(note.Autor) + '</strong><small> ' + esc(formatTimestamp(note.Timestamp)) + '</small><p>' + esc(note.Nota) + '</p></article>';
       }).join("") : '<p>No hay notas internas.</p>') + '</div>' +
       '</section>';
   }
@@ -930,7 +963,7 @@
     return '<section class="detail-panel">' +
       '<h3>Historial</h3>' +
       '<div class="timeline">' + (history.length ? history.map(function (item) {
-        return '<article class="timeline-item"><strong>' + esc(item.Accion) + '</strong><small> ' + esc(item.Timestamp) + ' - ' + esc(item.Usuario) + '</small><p>' + esc(item.Detalle) + '</p></article>';
+        return '<article class="timeline-item"><strong>' + esc(item.Accion) + '</strong><small> ' + esc(formatTimestamp(item.Timestamp)) + ' - ' + esc(item.Usuario) + '</small><p>' + esc(item.Detalle) + '</p></article>';
       }).join("") : '<p>No hay historial.</p>') + '</div>' +
       '</section>';
   }
