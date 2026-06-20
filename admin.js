@@ -179,9 +179,8 @@
   var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
   var ADMIN_SCHEDULE_KEY = "atlas-remodeling-schedule-v1";
   var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
-  var MAX_GALLERY_PHOTO_BYTES = 20 * 1024 * 1024;
+  var MAX_GALLERY_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
-  var GALLERY_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
   var DEFAULT_ADMIN_SETTINGS = {
     payments: {
@@ -553,13 +552,19 @@
     });
   }
 
+  function isImageFile(file) {
+    var type = String(file.type || "").toLowerCase();
+    var name = String(file.name || "");
+    return type.indexOf("image/") === 0 || /\.(jpe?g|png|webp|heic|heif)$/i.test(name);
+  }
+
   function readGalleryPhoto(file) {
     if (!file) return Promise.resolve(null);
-    if (GALLERY_PHOTO_TYPES.indexOf(file.type) === -1) {
-      return Promise.reject(new Error("La foto debe ser JPG, PNG o WEBP."));
+    if (!isImageFile(file)) {
+      return Promise.reject(new Error("El archivo debe ser una imagen."));
     }
     if (file.size > MAX_GALLERY_PHOTO_BYTES) {
-      return Promise.reject(new Error("La foto excede 20 MB. Puedes subir fotos normales de celular; el panel las reduce automaticamente antes de enviarlas."));
+      return Promise.reject(new Error("La foto excede 60 MB. Puedes subir fotos normales de celular; el panel las reduce automaticamente antes de enviarlas."));
     }
     return fileToDataUrl(file).then(function (source) {
       return optimizeImageDataUrl(source, {
@@ -1595,7 +1600,7 @@
       '<h3>Fotos del proyecto</h3>' +
       renderPhotos(request.fotosUrls) +
       '<form id="projectPhotoForm" class="form-grid project-photo-form">' +
-        '<label class="wide">Subir foto nueva<input id="projectPhotoInput" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>' +
+        '<label class="wide">Subir foto nueva<input id="projectPhotoInput" name="photo" type="file" accept="image/*"></label>' +
         '<label class="wide">O pegar URL de foto<input name="imageUrl" placeholder="https://..."></label>' +
         '<label>Titulo para galeria<input name="title" value="' + esc(request.servicio || "Proyecto") + '"></label>' +
         '<label>Categoria<select name="category"><option value="roof">Techos</option><option value="interior" selected>Interiores</option><option value="commercial">Comercial</option></select></label>' +

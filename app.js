@@ -3,9 +3,8 @@
 
   var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
   var MAX_PHOTOS = 5;
-  var MAX_PHOTO_BYTES = 20 * 1024 * 1024;
+  var MAX_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_PHOTO_MAX_LENGTH = 850000;
-  var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var submitting = false;
   var activeClientKey = "";
   var currentPortalProject = null;
@@ -201,17 +200,23 @@
     });
   }
 
+  function isImageFile(file) {
+    var type = String(file.type || "").toLowerCase();
+    var name = String(file.name || "");
+    return type.indexOf("image/") === 0 || /\.(jpe?g|png|webp|heic|heif)$/i.test(name);
+  }
+
   function validatePhotos(files) {
     var list = Array.prototype.slice.call(files || []);
     if (list.length > MAX_PHOTOS) {
       throw new Error("Puedes subir hasta " + MAX_PHOTOS + " fotos.");
     }
     list.forEach(function (file) {
-      if (ALLOWED_TYPES.indexOf(file.type) === -1) {
-        throw new Error("La foto " + file.name + " debe ser JPG, PNG o WEBP.");
+      if (!isImageFile(file)) {
+        throw new Error("La foto " + file.name + " debe ser una imagen.");
       }
       if (file.size > MAX_PHOTO_BYTES) {
-        throw new Error("La foto " + file.name + " excede 20 MB. Puedes subir fotos normales de celular; la pagina las reduce automaticamente antes de enviarlas.");
+        throw new Error("La foto " + file.name + " excede 60 MB. Puedes subir fotos normales de celular; la pagina las reduce automaticamente antes de enviarlas.");
       }
     });
     return list;
