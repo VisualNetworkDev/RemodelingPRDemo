@@ -81,6 +81,16 @@ if (!indexHtml.includes("galleryGrid") || !appJs.includes("listGallery")) {
   throw new Error("Public index must load gallery from the managed backend gallery.");
 }
 
+if (indexHtml.includes("4 MB") || adminHtml.includes("4 MB") || appJs.includes("excede 4 MB") || adminJs.includes("excede 4 MB")) {
+  throw new Error("Photo upload UI must not force users to reduce normal phone photos to 4 MB.");
+}
+
+for (const marker of ["20 MB", "reduce automaticamente", "MAX_PHOTO_BYTES = 20 * 1024 * 1024", "MAX_GALLERY_PHOTO_BYTES = 20 * 1024 * 1024"]) {
+  if (!(indexHtml + adminHtml + appJs + adminJs).includes(marker)) {
+    throw new Error(`Large phone photo support marker missing: ${marker}`);
+  }
+}
+
 for (const marker of ["optimizeImageDataUrl", "readOptimizedPhoto", "OPTIMIZED_PHOTO_MAX_LENGTH", "mimeType: \"image/jpeg\""]) {
   if (!appJs.includes(marker)) throw new Error(`Public photo uploads must stay optimized before backend submit: ${marker}`);
 }

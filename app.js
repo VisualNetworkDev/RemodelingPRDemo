@@ -3,7 +3,7 @@
 
   var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
   var MAX_PHOTOS = 5;
-  var MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+  var MAX_PHOTO_BYTES = 20 * 1024 * 1024;
   var OPTIMIZED_PHOTO_MAX_LENGTH = 850000;
   var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var submitting = false;
@@ -211,7 +211,7 @@
         throw new Error("La foto " + file.name + " debe ser JPG, PNG o WEBP.");
       }
       if (file.size > MAX_PHOTO_BYTES) {
-        throw new Error("La foto " + file.name + " excede 4 MB.");
+        throw new Error("La foto " + file.name + " excede 20 MB. Puedes subir fotos normales de celular; la pagina las reduce automaticamente antes de enviarlas.");
       }
     });
     return list;

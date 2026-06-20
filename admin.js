@@ -179,7 +179,7 @@
   var ADMIN_SETTINGS_KEY = "atlas-remodeling-admin-settings-v1";
   var ADMIN_SCHEDULE_KEY = "atlas-remodeling-schedule-v1";
   var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
-  var MAX_GALLERY_PHOTO_BYTES = 4 * 1024 * 1024;
+  var MAX_GALLERY_PHOTO_BYTES = 20 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
   var GALLERY_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -559,7 +559,7 @@
       return Promise.reject(new Error("La foto debe ser JPG, PNG o WEBP."));
     }
     if (file.size > MAX_GALLERY_PHOTO_BYTES) {
-      return Promise.reject(new Error("La foto excede 4 MB."));
+      return Promise.reject(new Error("La foto excede 20 MB. Puedes subir fotos normales de celular; el panel las reduce automaticamente antes de enviarlas."));
     }
     return fileToDataUrl(file).then(function (source) {
       return optimizeImageDataUrl(source, {
