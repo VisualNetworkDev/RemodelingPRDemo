@@ -2,6 +2,8 @@
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
+const backendDir = path.join(root, "backend");
+const hasBackend = fs.existsSync(backendDir);
 const requiredFiles = [
   "index.html",
   "admin.html",
@@ -11,6 +13,16 @@ const requiredFiles = [
   "README.md"
 ];
 
+if (hasBackend) {
+  requiredFiles.push(
+    "backend/Code.gs",
+    "backend/Sheets.gs",
+    "backend/Messages.gs",
+    "backend/appsscript.json",
+    "backend/.clasp.json"
+  );
+}
+
 for (const file of requiredFiles) {
   const fullPath = path.join(root, file);
   if (!fs.existsSync(fullPath)) {
@@ -18,9 +30,12 @@ for (const file of requiredFiles) {
   }
 }
 
-const backendDir = path.join(root, "backend");
-if (fs.existsSync(backendDir)) {
-  throw new Error("Backend must not be included in the GitHub Pages publication folder.");
+const expectedGsFiles = ["Code.gs", "Messages.gs", "Sheets.gs"];
+if (hasBackend) {
+  const gsFiles = fs.readdirSync(backendDir).filter((file) => file.endsWith(".gs")).sort();
+  if (JSON.stringify(gsFiles) !== JSON.stringify(expectedGsFiles)) {
+    throw new Error(`Backend must stay organized in exactly 3 .gs files: ${expectedGsFiles.join(", ")}. Found: ${gsFiles.join(", ")}`);
+  }
 }
 
 const forbidden = /\b(TODO|placeholder logic|implementar despues)\b/i;
@@ -37,8 +52,12 @@ for (const file of requiredFiles) {
 
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const adminHtml = fs.readFileSync(path.join(root, "admin.html"), "utf8");
+const stylesCss = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const adminJs = fs.readFileSync(path.join(root, "admin.js"), "utf8");
+const backend = hasBackend
+  ? expectedGsFiles.map((file) => fs.readFileSync(path.join(backendDir, file), "utf8")).join("\n\n")
+  : "";
 
 const hiddenCopyChecks = [
   ["Apps", "Script"].join(" "),
@@ -81,6 +100,16 @@ if (!indexHtml.includes("galleryGrid") || !appJs.includes("listGallery")) {
   throw new Error("Public index must load gallery from the managed backend gallery.");
 }
 
+for (const marker of ["gallery-lightbox", "data-gallery-open", "bindGalleryLightbox", "openGalleryLightbox"]) {
+  if (!(stylesCss + appJs).includes(marker)) {
+    throw new Error(`Public gallery lightbox marker missing: ${marker}`);
+  }
+}
+
+for (const marker of [".service-app-card.is-hidden", ".proof-card.is-hidden"]) {
+  if (!stylesCss.includes(marker)) throw new Error(`Current app cards must be hidden by filters: ${marker}`);
+}
+
 if (indexHtml.includes("4 MB") || adminHtml.includes("4 MB") || appJs.includes("excede 4 MB") || adminJs.includes("excede 4 MB") ||
     indexHtml.includes("20 MB") || adminHtml.includes("20 MB") || appJs.includes("excede 20 MB") || adminJs.includes("excede 20 MB")) {
   throw new Error("Photo upload UI must not force users to reduce normal phone photos to 4 MB or 20 MB.");
@@ -104,8 +133,16 @@ for (const action of ["submitRequest", "getPublicProject", "approveQuote", "rend
   if (!appJs.includes(action)) throw new Error(`Public app missing action ${action}`);
 }
 
-for (const action of ["listRequests", "getRequest", "updateStatus", "addInternalNote", "createQuote", "sendQuoteEmail", "resendCustomerConfirmation"]) {
+for (const action of ["getAdminBootstrap", "listRequests", "getRequest", "updateStatus", "addInternalNote", "createQuote", "sendQuoteEmail", "resendCustomerConfirmation"]) {
   if (!adminJs.includes(action)) throw new Error(`Admin app missing action ${action}`);
+}
+
+for (const marker of ["AbortController", "READ_TIMEOUT_MS", "PHOTO_TIMEOUT_MS", "renderDashboardLoading", "showDetailLoading", "isReadAction", "method: \"GET\""]) {
+  if (!adminJs.includes(marker)) throw new Error(`Admin performance marker missing ${marker}`);
+}
+
+if (adminJs.includes("O pegar URL de foto") || adminJs.includes('placeholder="https://..."')) {
+  throw new Error("Admin project photo panel must not expose manual URL input.");
 }
 
 for (const marker of ["data-quote-from-schedule", "data-quote-open", "visitAdjustmentMode", "visitAdjustmentAmount", "visitAdjustmentNotes", "quoteEditPanel", "focusQuotePanel"]) {
@@ -130,6 +167,42 @@ for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTool
 
 for (const marker of ["optimizeImageDataUrl", "readGalleryPhoto", "OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH", "mimeType: \"image/jpeg\""]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin gallery uploads must stay optimized before backend submit: ${marker}`);
+}
+
+if (hasBackend) {
+  for (const action of ["submitRequest", "addProjectPhoto", "getPublicProject", "approveQuote", "generateQuotePdf", "getAdminBootstrap", "listSchedule", "upsertSchedule", "deleteSchedule", "listRequests", "updateStatus", "addInternalNote", "createQuote", "sendQuoteEmail", "resendCustomerConfirmation", "setupDemo", "listGallery", "upsertGalleryItem", "deleteGalleryItem"]) {
+    if (!backend.includes(action)) throw new Error(`Backend missing ${action}`);
+  }
+
+  for (const marker of ["CacheService", "clearRuntimeCaches_", "runtimeCacheKey_", "calculateRequestStats_", "scheduleEventsFromRows_"]) {
+    if (!backend.includes(marker)) throw new Error(`Backend performance/cache marker missing ${marker}`);
+  }
+
+  for (const field of ["SCHEDULE", "Agenda", "normalizeScheduleEvent_", "displayTime_"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing schedule support ${field}`);
+  }
+
+  for (const field of ["PdfUrl", "PdfUpdatedAt", "buildQuotePdfHtml_", "MimeType.PDF"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing PDF support ${field}`);
+  }
+
+  for (const field of ["APPROVALS", "Aprobaciones", "latestApprovalForRequest_", "approvalsForRequest_"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing approval support ${field}`);
+  }
+
+  for (const field of ["fechaPreferida: normalized.fechaPreferida", "urgencia: normalized.urgencia", "fotosUrls: normalized.fotosUrls"]) {
+    if (!backend.includes(field)) throw new Error(`Backend listRequests summary missing schedule field ${field}`);
+  }
+
+  for (const field of ["OpcionesPago", "DepositoRequerido", "NotasPago", "paymentOptionsHtml_"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing quote payment support ${field}`);
+  }
+
+  for (const field of ["AjusteVisitaTipo", "AjusteVisitaMonto", "AjusteVisitaNotas", "visitAdjustmentHtml_", "signedMoney_"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing visit adjustment support ${field}`);
+  }
+
+  new Function(backend);
 }
 
 console.log("Smoke checks passed");

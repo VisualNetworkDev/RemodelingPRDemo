@@ -507,7 +507,9 @@ button {
 }
 
 .service-card.is-hidden,
-.project-card.is-hidden {
+.project-card.is-hidden,
+.service-app-card.is-hidden,
+.proof-card.is-hidden {
   display: none;
 }
 
@@ -1269,6 +1271,41 @@ th {
   margin: 18px 0;
 }
 
+.detail-loading {
+  min-height: 420px;
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 18px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: clamp(18px, 4vw, 34px);
+  background: linear-gradient(135deg, #fbfcfd, #f4f7fa);
+}
+
+.detail-loading h3 {
+  margin: 4px 0 6px;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1;
+}
+
+.loading-ring {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  border: 5px solid #e4eaf0;
+  border-top-color: var(--gold);
+  animation: spin .8s linear infinite;
+}
+
+.kv-list.compact {
+  margin: 16px 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
 .detail-panel {
   padding: 16px;
   margin-bottom: 14px;
@@ -1475,6 +1512,12 @@ th {
   to {
     transform: translateX(0);
     opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -2443,6 +2486,80 @@ th {
 .proof-card span {
   color: rgba(255, 255, 255, .74);
   font-size: 13px;
+}
+
+.proof-card[data-gallery-open] {
+  cursor: zoom-in;
+}
+
+.gallery-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(14px, 3vw, 34px);
+}
+
+.gallery-lightbox.open {
+  display: flex;
+}
+
+.gallery-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 10, .86);
+  backdrop-filter: blur(16px);
+}
+
+.gallery-lightbox-panel {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  max-height: 92vh;
+  margin: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 10px;
+  background: #0b1110;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .42);
+}
+
+.gallery-lightbox-panel img {
+  width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+  background: #050807;
+}
+
+.gallery-lightbox-panel figcaption {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  color: #fff;
+}
+
+.gallery-lightbox-panel figcaption span {
+  color: rgba(255, 255, 255, .68);
+}
+
+.gallery-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .92);
+  color: #111;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .payment-preview {

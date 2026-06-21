@@ -1,10 +1,13 @@
 ﻿(function () {
   "use strict";
 
-  var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
+  var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwcDHwpPTCQy-LDEjepKGr6uy0ldRzR-507UUVNgQI61dKE0VOjAlmaO5o5Cvx5-ZAZsw/exec";
   var MAX_PHOTOS = 5;
   var MAX_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_PHOTO_MAX_LENGTH = 850000;
+  var READ_TIMEOUT_MS = 42000;
+  var WRITE_TIMEOUT_MS = 75000;
+  var PHOTO_TIMEOUT_MS = 120000;
   var submitting = false;
   var activeClientKey = "";
   var currentPortalProject = null;
@@ -90,12 +93,25 @@
       });
     }
 
-    return fetch(url, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: action, payload: payload || {} })
-    }).then(function (response) {
+    var timeoutMs = action === "submitRequest" ? PHOTO_TIMEOUT_MS : (action === "approveQuote" ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS);
+    var controller = window.AbortController ? new AbortController() : null;
+    var timeoutId = controller ? window.setTimeout(function () {
+      controller.abort();
+    }, timeoutMs) : null;
+    var readOnly = action === "listGallery" || action === "getServices" || action === "ping";
+    var requestUrl = readOnly
+      ? url + "?action=" + encodeURIComponent(action) + "&payload=" + encodeURIComponent(JSON.stringify(payload || {})) + "&_=" + Date.now()
+      : url;
+    var requestOptions = readOnly
+      ? { method: "GET", mode: "cors", signal: controller ? controller.signal : undefined }
+      : {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({ action: action, payload: payload || {} })
+      };
+    return fetch(requestUrl, requestOptions).then(function (response) {
       return response.text().then(function (text) {
         try {
           return JSON.parse(text);
@@ -103,11 +119,15 @@
           return { ok: false, message: "No se pudo leer la respuesta. Intentalo nuevamente." };
         }
       });
-    }).catch(function () {
+    }).catch(function (error) {
       return {
         ok: false,
-        message: "No se pudo completar el envio. Intentalo nuevamente en unos minutos."
+        message: error && error.name === "AbortError"
+          ? "La conexion tardo demasiado. Intentalo nuevamente."
+          : "No se pudo completar el envio. Intentalo nuevamente en unos minutos."
       };
+    }).finally(function () {
+      if (timeoutId) window.clearTimeout(timeoutId);
     });
   }
 
@@ -544,10 +564,11 @@
 
   function bindServiceFilters() {
     var tabs = document.querySelectorAll("[data-filter]");
-    var cards = document.querySelectorAll("[data-category]");
     tabs.forEach(function (tab) {
       tab.addEventListener("click", function () {
         var filter = tab.getAttribute("data-filter");
+        var serviceGrid = document.querySelector(".service-app-grid");
+        var cards = serviceGrid ? serviceGrid.querySelectorAll("[data-category]") : document.querySelectorAll("[data-category]");
         tabs.forEach(function (item) { item.classList.toggle("active", item === tab); });
         cards.forEach(function (card) {
           var match = filter === "all" || card.getAttribute("data-category") === filter;
@@ -583,7 +604,8 @@
       var title = item.title || "Proyecto completado";
       var description = item.description || item.type || "Trabajo realizado";
       var imageUrl = item.imageUrl || item.linkUrl || "";
-      return '<article class="proof-card" data-gallery-item="' + escapeAttr(category) + '">' +
+      var fullUrl = item.linkUrl || imageUrl;
+      return '<article class="proof-card" tabindex="0" role="button" data-gallery-open data-gallery-item="' + escapeAttr(category) + '" data-gallery-src="' + escapeAttr(fullUrl) + '" data-gallery-title="' + escapeAttr(title) + '" data-gallery-description="' + escapeAttr(description) + '">' +
         '<img src="' + escapeAttr(imageUrl) + '" alt="' + escapeAttr(title) + '" loading="lazy">' +
         '<div><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(description) + '</span></div>' +
       '</article>';
@@ -613,7 +635,81 @@
     publicAction("listGallery", { publicOnly: true }).then(function (response) {
       if (!response || !response.ok || !response.data || !Array.isArray(response.data.items)) return;
       renderGallery(response.data.items);
+      enhanceGalleryCards();
     }).catch(function () {});
+  }
+
+  function enhanceGalleryCards() {
+    if (!galleryGrid) return;
+    galleryGrid.querySelectorAll(".proof-card").forEach(function (card) {
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("role", "button");
+      if (!card.hasAttribute("data-gallery-open")) card.setAttribute("data-gallery-open", "");
+    });
+  }
+
+  function ensureGalleryLightbox() {
+    var existing = document.getElementById("galleryLightbox");
+    if (existing) return existing;
+    var lightbox = document.createElement("div");
+    lightbox.id = "galleryLightbox";
+    lightbox.className = "gallery-lightbox";
+    lightbox.setAttribute("aria-hidden", "true");
+    lightbox.innerHTML =
+      '<div class="gallery-lightbox-backdrop" data-close-gallery></div>' +
+      '<figure class="gallery-lightbox-panel">' +
+        '<button class="gallery-lightbox-close" type="button" aria-label="Cerrar foto" data-close-gallery>&times;</button>' +
+        '<img alt="">' +
+        '<figcaption><strong></strong><span></span></figcaption>' +
+      '</figure>';
+    document.body.appendChild(lightbox);
+    lightbox.addEventListener("click", function (event) {
+      if (event.target.closest("[data-close-gallery]")) closeGalleryLightbox();
+    });
+    return lightbox;
+  }
+
+  function closeGalleryLightbox() {
+    var lightbox = document.getElementById("galleryLightbox");
+    if (!lightbox) return;
+    lightbox.classList.remove("open");
+    lightbox.setAttribute("aria-hidden", "true");
+  }
+
+  function openGalleryLightbox(card) {
+    var img = card.querySelector("img");
+    if (!img) return;
+    var titleNode = card.querySelector("strong");
+    var descriptionNode = card.querySelector("span");
+    var lightbox = ensureGalleryLightbox();
+    var targetImg = lightbox.querySelector("img");
+    var title = card.getAttribute("data-gallery-title") || (titleNode ? titleNode.textContent : img.alt || "Proyecto");
+    var description = card.getAttribute("data-gallery-description") || (descriptionNode ? descriptionNode.textContent : "");
+    targetImg.src = card.getAttribute("data-gallery-src") || img.currentSrc || img.src;
+    targetImg.alt = img.alt || title;
+    lightbox.querySelector("strong").textContent = title;
+    lightbox.querySelector("span").textContent = description;
+    lightbox.classList.add("open");
+    lightbox.setAttribute("aria-hidden", "false");
+  }
+
+  function bindGalleryLightbox() {
+    if (!galleryGrid) return;
+    enhanceGalleryCards();
+    galleryGrid.addEventListener("click", function (event) {
+      var card = event.target.closest("[data-gallery-open]");
+      if (card && galleryGrid.contains(card)) openGalleryLightbox(card);
+    });
+    galleryGrid.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      var card = event.target.closest("[data-gallery-open]");
+      if (!card || !galleryGrid.contains(card)) return;
+      event.preventDefault();
+      openGalleryLightbox(card);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeGalleryLightbox();
+    });
   }
 
   function setMinimumDate() {
@@ -640,6 +736,7 @@
   bindServiceButtons();
   bindServiceFilters();
   bindGalleryFilters();
+  bindGalleryLightbox();
   loadGallery();
   setMinimumDate();
 })();

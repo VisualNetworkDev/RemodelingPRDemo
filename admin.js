@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbzQOOwzme8kzglwPPBMFhdm-Kiaw4UA5VxF0JZBsiH4Ne5HGcf3pWWxHJSegbIBn83wyw/exec";
+  var DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbwcDHwpPTCQy-LDEjepKGr6uy0ldRzR-507UUVNgQI61dKE0VOjAlmaO5o5Cvx5-ZAZsw/exec";
 
   var STATUSES = [
     "Pendiente",
@@ -181,6 +181,9 @@
   var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
   var MAX_GALLERY_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
+  var READ_TIMEOUT_MS = 42000;
+  var WRITE_TIMEOUT_MS = 75000;
+  var PHOTO_TIMEOUT_MS = 120000;
 
   var DEFAULT_ADMIN_SETTINGS = {
     payments: {
@@ -597,17 +600,49 @@
     adminAlert.textContent = "";
   }
 
+  function actionTimeoutMs(action, payload) {
+    payload = payload || {};
+    if (payload.photo || action === "submitRequest" || action === "addProjectPhoto" || action === "upsertGalleryItem") {
+      return PHOTO_TIMEOUT_MS;
+    }
+    if (action === "sendQuoteEmail" || action === "previewQuoteEmail" || action === "generateQuotePdf") {
+      return WRITE_TIMEOUT_MS;
+    }
+    return READ_TIMEOUT_MS;
+  }
+
+  function isReadAction(action) {
+    return [
+      "ping",
+      "getServices",
+      "listGallery"
+    ].indexOf(action) !== -1;
+  }
+
   function sendAction(action, payload) {
     var url = endpointUrl();
     if (!url) {
       return Promise.resolve({ ok: false, message: "La conexion del panel no esta configurada." });
     }
-    return fetch(url, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: action, payload: payload || {} })
-    }).then(function (response) {
+    var timeoutMs = actionTimeoutMs(action, payload);
+    var controller = window.AbortController ? new AbortController() : null;
+    var timeoutId = controller ? window.setTimeout(function () {
+      controller.abort();
+    }, timeoutMs) : null;
+    var readOnly = isReadAction(action);
+    var requestUrl = readOnly
+      ? url + "?action=" + encodeURIComponent(action) + "&payload=" + encodeURIComponent(JSON.stringify(payload || {})) + "&_=" + Date.now()
+      : url;
+    var requestOptions = readOnly
+      ? { method: "GET", mode: "cors", signal: controller ? controller.signal : undefined }
+      : {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({ action: action, payload: payload || {} })
+      };
+    return fetch(requestUrl, requestOptions).then(function (response) {
       return response.text().then(function (text) {
         try {
           return JSON.parse(text);
@@ -615,11 +650,15 @@
           return { ok: false, message: "No se pudo leer la informacion recibida." };
         }
       });
-    }).catch(function () {
+    }).catch(function (error) {
       return {
         ok: false,
-        message: "No se pudo cargar la informacion. Revisa que el proyecto publicado este autorizado."
+        message: error && error.name === "AbortError"
+          ? "La llamada tardo demasiado. Intenta otra vez; el panel ya no esperara indefinidamente."
+          : "No se pudo cargar la informacion. Revisa que el proyecto publicado este autorizado."
       };
+    }).finally(function () {
+      if (timeoutId) window.clearTimeout(timeoutId);
     });
   }
 
@@ -663,17 +702,17 @@
 
   function loadDashboard() {
     clearAlert();
-    renderPreviewDashboard();
-    return Promise.all([
-      sendAction("getDashboardStats", {}).then(requireOk),
-      sendAction("listRequests", {}).then(requireOk),
-      sendAction("listSchedule", {}).then(requireOk)
-    ]).then(function (results) {
-      var liveRequests = results[1].requests || [];
-      state.requests = liveRequests.length ? liveRequests : DEMO_REQUESTS.slice();
-      state.stats = liveRequests.length ? (results[0].stats || {}) : calculateStats(state.requests);
-      if (Array.isArray(results[2].events)) {
-        state.schedule = results[2].events.length ? results[2].events : state.schedule;
+    renderDashboardLoading();
+    return sendAction("getAdminBootstrap", {}).then(requireOk).then(function (data) {
+      if (Array.isArray(data.statuses)) STATUSES = data.statuses;
+      if (Array.isArray(data.services)) {
+        SERVICES = data.services.map(function (service) { return service.name || service; });
+      }
+      initFilters();
+      state.requests = Array.isArray(data.requests) && data.requests.length ? data.requests : DEMO_REQUESTS.slice();
+      state.stats = data.stats || calculateStats(state.requests);
+      if (Array.isArray(data.events)) {
+        state.schedule = data.events.length ? data.events : state.schedule;
         saveScheduleEvents();
       }
       renderStats();
@@ -681,11 +720,31 @@
       renderRequests();
       renderAdminTools();
     }).catch(function (error) {
-      setAlert("error", error.message + " Mostrando datos locales mientras se recupera la conexion.");
-      renderStats();
-      renderOperations();
-      renderRequests();
-      renderAdminTools();
+      return Promise.all([
+        sendAction("getDashboardStats", {}).then(requireOk),
+        sendAction("listRequests", {}).then(requireOk),
+        sendAction("listSchedule", {}).then(requireOk)
+      ]).then(function (results) {
+        var liveRequests = results[1].requests || [];
+        state.requests = liveRequests.length ? liveRequests : DEMO_REQUESTS.slice();
+        state.stats = liveRequests.length ? (results[0].stats || {}) : calculateStats(state.requests);
+        if (Array.isArray(results[2].events)) {
+          state.schedule = results[2].events.length ? results[2].events : state.schedule;
+          saveScheduleEvents();
+        }
+        renderStats();
+        renderOperations();
+        renderRequests();
+        renderAdminTools();
+      }).catch(function (fallbackError) {
+        setAlert("error", (fallbackError.message || error.message) + " Mostrando datos locales mientras se recupera la conexion.");
+        state.requests = DEMO_REQUESTS.slice();
+        state.stats = calculateStats(state.requests);
+        renderStats();
+        renderOperations();
+        renderRequests();
+        renderAdminTools();
+      });
     });
   }
 
@@ -702,6 +761,17 @@
     renderOperations();
     renderRequests();
     renderAdminTools();
+  }
+
+  function renderDashboardLoading() {
+    if (statsGrid) statsGrid.innerHTML = loadingCards();
+    if (pipelineBoard) pipelineBoard.innerHTML = '<div class="empty-state">Cargando pipeline real...</div>';
+    if (nextActions) nextActions.innerHTML = '<div class="empty-state">Cargando proximas acciones...</div>';
+    if (serviceMix) serviceMix.innerHTML = '<div class="empty-state">Cargando servicios...</div>';
+    if (requestsTable) {
+      requestsTable.innerHTML = '<tr><td colspan="9" data-label="Cargando">Cargando solicitudes reales...</td></tr>';
+    }
+    if (quoteConsole) quoteConsole.innerHTML = '<div class="empty-state">Cargando cotizaciones reales...</div>';
   }
 
   function calculateStats(rows) {
@@ -1521,17 +1591,47 @@
     }, 1800);
   }
 
+  function requestSummaryForLoading(requestId, fallback) {
+    return requestById(requestId) || (fallback && fallback.request) || {
+      id: requestId,
+      nombre: "Consulta",
+      servicio: "",
+      pueblo: "",
+      estado: "Cargando"
+    };
+  }
+
+  function showDetailLoading(requestId, summary, options) {
+    options = options || {};
+    detailTitle.textContent = requestId + " - cargando ficha";
+    detailBody.innerHTML =
+      '<div class="detail-loading">' +
+        '<div class="loading-ring" aria-hidden="true"></div>' +
+        '<div>' +
+          '<p class="eyebrow">Cargando datos reales</p>' +
+          '<h3>' + esc(summary.nombre || "Consulta") + '</h3>' +
+          '<p>' + esc(summary.servicio || "Servicio") + (summary.pueblo ? ' - ' + esc(summary.pueblo) : '') + '</p>' +
+          '<div class="kv-list compact">' +
+            kv("Codigo", requestId) +
+            kv("Estado", summary.estado || "Cargando") +
+            kv("Total", money(summary.totalCotizado || 0)) +
+          '</div>' +
+          '<p class="muted">Abriendo la ficha sin bloquear el panel. Si Apps Script tarda demasiado, se mostrara un aviso para reintentar.</p>' +
+          (options.focusQuote ? '<p class="muted">Cuando cargue, bajare directo al editor de cotizacion.</p>' : '') +
+        '</div>' +
+      '</div>';
+    detailModal.classList.add("open");
+  }
+
   function openDetail(requestId, options) {
     options = options || {};
     clearAlert();
     var fallback = demoDetailForRequest(requestId);
-    if (fallback) {
-      state.detail = fallback;
-      renderDetail();
-      detailModal.classList.add("open");
-      if (options.focusQuote) setTimeout(focusQuotePanel, 80);
-    }
-    return sendAction("getRequest", { requestId: requestId }).then(requireOk).then(function (data) {
+    showDetailLoading(requestId, requestSummaryForLoading(requestId, fallback), options);
+    return sendAction("getRequest", {
+      requestId: requestId,
+      noCache: options.noCache === true
+    }).then(requireOk).then(function (data) {
       if (fallback && data.request) {
         if (!data.request.fotosUrls || !data.request.fotosUrls.length) {
           data.request.fotosUrls = fallback.request.fotosUrls;
@@ -1550,8 +1650,16 @@
       if (options.focusQuote) setTimeout(focusQuotePanel, 80);
     }).catch(function (error) {
       if (!fallback) {
+        detailBody.innerHTML =
+          '<div class="empty-state">' +
+            '<strong>No se pudo abrir la ficha.</strong>' +
+            '<p>' + esc(error.message) + '</p>' +
+            '<button class="btn primary" type="button" data-retry-detail="' + esc(requestId) + '">Reintentar</button>' +
+          '</div>';
         setAlert("error", error.message);
       } else {
+        state.detail = fallback;
+        renderDetail();
         setAlert("error", error.message + " Mostrando ficha local mientras se recupera la conexion.");
       }
     });
@@ -1615,7 +1723,6 @@
       renderPhotos(request.fotosUrls) +
       '<form id="projectPhotoForm" class="form-grid project-photo-form">' +
         '<label class="wide">Subir foto nueva<input id="projectPhotoInput" name="photo" type="file" accept="image/*"></label>' +
-        '<label class="wide">O pegar URL de foto<input name="imageUrl" placeholder="https://..."></label>' +
         '<label>Titulo para galeria<input name="title" value="' + esc(request.servicio || "Proyecto") + '"></label>' +
         '<label>Categoria<select name="category"><option value="roof">Techos</option><option value="interior" selected>Interiores</option><option value="commercial">Comercial</option></select></label>' +
         '<label>Tipo<select name="type"><option>Proceso</option><option>Antes</option><option>Despues</option></select></label>' +
@@ -1823,7 +1930,7 @@
   }
 
   function refreshDetail() {
-    return sendAction("getRequest", { requestId: state.detail.request.id }).then(requireOk).then(function (data) {
+    return sendAction("getRequest", { requestId: state.detail.request.id, noCache: true }).then(requireOk).then(function (data) {
       state.detail = data;
       renderDetail();
       return loadDashboard();
@@ -2396,6 +2503,8 @@
     closeDetailBtn.addEventListener("click", closeDetail);
     detailModal.addEventListener("click", function (event) {
       if (event.target === detailModal) closeDetail();
+      var retry = event.target.closest("[data-retry-detail]");
+      if (retry) openDetail(retry.getAttribute("data-retry-detail"), { noCache: true });
     });
     requestsTable.addEventListener("click", function (event) {
       var button = event.target.closest("[data-open]");
@@ -2432,9 +2541,9 @@
     initFilters();
     bindEvents();
     bindAdminTools();
-    renderPreviewDashboard();
+    renderDashboardLoading();
     loadGallery();
-    loadServices().then(loadDashboard);
+    loadDashboard();
   }
 
   boot();
