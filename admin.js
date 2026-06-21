@@ -769,7 +769,7 @@
           '<strong>' + money(request.totalCotizado) + '</strong>' +
           '<div class="row-actions">' +
             '<button class="btn secondary small" type="button" data-open="' + esc(request.id) + '">Abrir ficha</button>' +
-            '<button class="btn primary small" type="button" data-open="' + esc(request.id) + '">Editar cotizacion</button>' +
+            '<button class="btn primary small" type="button" data-quote-open="' + esc(request.id) + '">Editar/ajustar cotizacion</button>' +
           '</div>' +
         '</div>' +
       '</article>';
@@ -895,6 +895,7 @@
         '<td data-label="Estado"><span class="status-pill ' + eventStatusClass(event.status) + '">' + esc(event.status || "Programado") + '</span></td>' +
         '<td data-label="Acciones"><div class="row-actions">' +
           (request ? '<button class="btn secondary small" type="button" data-open="' + esc(request.id) + '">Ficha</button>' : "") +
+          (request ? '<button class="btn primary small" type="button" data-quote-from-schedule="' + esc(request.id) + '">Ajustar cotizacion</button>' : "") +
           (event.derived ? '<span class="status-pill warn">Consulta</span>' :
             '<button class="btn secondary small" type="button" data-edit-schedule>Editar</button>' +
             '<button class="btn secondary small" type="button" data-complete-schedule>Completar</button>' +
@@ -1510,15 +1511,27 @@
     };
   }
 
-  function openDetail(requestId) {
+  function focusQuotePanel() {
+    var panel = document.getElementById("quoteEditPanel");
+    if (!panel) return;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.classList.add("quote-focus");
+    setTimeout(function () {
+      panel.classList.remove("quote-focus");
+    }, 1800);
+  }
+
+  function openDetail(requestId, options) {
+    options = options || {};
     clearAlert();
     var fallback = demoDetailForRequest(requestId);
     if (fallback) {
       state.detail = fallback;
       renderDetail();
       detailModal.classList.add("open");
+      if (options.focusQuote) setTimeout(focusQuotePanel, 80);
     }
-    sendAction("getRequest", { requestId: requestId }).then(requireOk).then(function (data) {
+    return sendAction("getRequest", { requestId: requestId }).then(requireOk).then(function (data) {
       if (fallback && data.request) {
         if (!data.request.fotosUrls || !data.request.fotosUrls.length) {
           data.request.fotosUrls = fallback.request.fotosUrls;
@@ -1534,6 +1547,7 @@
       state.detail = data;
       renderDetail();
       detailModal.classList.add("open");
+      if (options.focusQuote) setTimeout(focusQuotePanel, 80);
     }).catch(function (error) {
       if (!fallback) {
         setAlert("error", error.message);
@@ -1691,9 +1705,21 @@
     return quotePaymentOptions(quote).indexOf(option) !== -1 ? " checked" : "";
   }
 
+  function quoteVisitAdjustmentMode(quote) {
+    var amount = Number(quote.AjusteVisitaMonto || 0);
+    if (amount > 0) return "add";
+    if (amount < 0) return "subtract";
+    return "none";
+  }
+
+  function quoteVisitAdjustmentAmount(quote) {
+    return Math.abs(Number(quote.AjusteVisitaMonto || 0));
+  }
+
   function renderQuotePanel(quote) {
     var request = state.detail.request;
-    return '<section class="detail-panel">' +
+    var visitMode = quoteVisitAdjustmentMode(quote);
+    return '<section id="quoteEditPanel" class="detail-panel quote-edit-panel">' +
       '<h3>Cotizacion</h3>' +
       '<div class="quote-media-preview">' +
         '<strong>Fotos incluidas en la propuesta</strong>' +
@@ -1709,6 +1735,19 @@
           '<label>Tax opcional<input name="tax" type="number" min="0" step="0.01" value="' + esc(quote.Tax || 0) + '"></label>' +
           '<label>Tiempo estimado<input name="estimatedTime" value="' + esc(quote.TiempoEstimado || "") + '"></label>' +
           '<label>Validez<input name="validUntil" value="' + esc(quote.Validez || "15 dias") + '"></label>' +
+          '<div class="wide visit-adjustment-card">' +
+            '<span>Ajuste despues de visitar el local</span>' +
+            '<p>Usalo si en la cita aparece trabajo extra o si el alcance real es menor que lo enviado por el cliente.</p>' +
+            '<div class="form-grid">' +
+              '<label>Tipo de ajuste<select name="visitAdjustmentMode">' +
+                '<option value="none"' + (visitMode === "none" ? " selected" : "") + '>Sin ajuste</option>' +
+                '<option value="add"' + (visitMode === "add" ? " selected" : "") + '>Sumar extra visto en local</option>' +
+                '<option value="subtract"' + (visitMode === "subtract" ? " selected" : "") + '>Restar por menor alcance</option>' +
+              '</select></label>' +
+              '<label>Monto de ajuste<input name="visitAdjustmentAmount" type="number" min="0" step="0.01" value="' + esc(quoteVisitAdjustmentAmount(quote)) + '"></label>' +
+              '<label class="wide">Nota de visita<textarea name="visitAdjustmentNotes" rows="3" placeholder="Ejemplo: en visita se encontro filtracion adicional o el area real era mas pequena.">' + esc(quote.AjusteVisitaNotas || "") + '</textarea></label>' +
+            '</div>' +
+          '</div>' +
           '<label class="wide">Notas de la cotizacion<textarea name="quoteNotes" rows="3">' + esc(quote.Notas || "") + '</textarea></label>' +
           '<div class="wide quote-option-block">' +
             '<span>Opciones de pago para enviar con la cotizacion</span>' +
@@ -1757,6 +1796,9 @@
       otherCosts: data.get("otherCosts"),
       discount: data.get("discount"),
       tax: data.get("tax"),
+      visitAdjustmentMode: String(data.get("visitAdjustmentMode") || "none"),
+      visitAdjustmentAmount: data.get("visitAdjustmentAmount"),
+      visitAdjustmentNotes: String(data.get("visitAdjustmentNotes") || "").trim(),
       estimatedTime: String(data.get("estimatedTime") || "").trim(),
       validUntil: String(data.get("validUntil") || "").trim(),
       quoteNotes: String(data.get("quoteNotes") || "").trim(),
@@ -1774,6 +1816,9 @@
     var total = ["materials", "labor", "otherCosts", "tax"].reduce(function (sum, key) {
       return sum + Number(data.get(key) || 0);
     }, 0) - Number(data.get("discount") || 0);
+    var adjustment = Math.abs(Number(data.get("visitAdjustmentAmount") || 0));
+    if (data.get("visitAdjustmentMode") === "add") total += adjustment;
+    if (data.get("visitAdjustmentMode") === "subtract") total -= adjustment;
     totalNode.textContent = money(Math.max(0, total));
   }
 
@@ -2018,6 +2063,12 @@
     [scheduleTable, scheduleWeek].forEach(function (area) {
       if (!area) return;
       area.addEventListener("click", function (event) {
+        var quoteBtn = event.target.closest("[data-quote-from-schedule]");
+        if (quoteBtn) {
+          openDetail(quoteBtn.getAttribute("data-quote-from-schedule"), { focusQuote: true });
+          return;
+        }
+
         var openBtn = event.target.closest("[data-open]");
         if (openBtn) {
           openDetail(openBtn.getAttribute("data-open"));
@@ -2359,6 +2410,12 @@
     });
     if (quoteConsole) {
       quoteConsole.addEventListener("click", function (event) {
+        var quoteButton = event.target.closest("[data-quote-open]");
+        if (quoteButton) {
+          openDetail(quoteButton.getAttribute("data-quote-open"), { focusQuote: true });
+          return;
+        }
+
         var button = event.target.closest("[data-open]");
         if (button) openDetail(button.getAttribute("data-open"));
       });

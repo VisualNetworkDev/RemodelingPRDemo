@@ -341,6 +341,16 @@
     }).join("") + '</div>';
   }
 
+  function renderVisitAdjustment(quote) {
+    var amount = Number(quote.visitAdjustmentAmount || 0);
+    var note = String(quote.visitAdjustmentNotes || "").trim();
+    if (!amount && !note) return "";
+    var label = amount > 0 ? "Extra visto en visita" : amount < 0 ? "Menos alcance en visita" : "Ajuste de visita";
+    var amountText = amount > 0 ? "+" + money(amount) : amount < 0 ? "-" + money(Math.abs(amount)) : money(0);
+    return '<div class="portal-kv visit-adjustment-row"><b>' + escapeHtml(label) + '</b><em>' + escapeHtml(amountText) + '</em></div>' +
+      (note ? '<p class="portal-adjustment-note">' + escapeHtml(note) + '</p>' : '');
+  }
+
   function renderPortalQuote(project) {
     var quote = project.quote || {};
     var approval = project.approval || {};
@@ -354,6 +364,7 @@
         '<p>Seleccion registrada: ' + escapeHtml(approval.paymentMethod || "Metodo pendiente") + '.</p>' +
         '<div class="portal-kv"><b>Estado de pago</b><em>' + escapeHtml(approval.status || "Pendiente de confirmacion") + '</em></div>' +
         '<div class="portal-kv"><b>Registrado</b><em>' + escapeHtml(approval.timestamp || "Recibido") + '</em></div>' +
+        renderVisitAdjustment(quote) +
         (quote.pdfUrl ? '<a class="portal-pdf-link" href="' + escapeAttr(quote.pdfUrl) + '" target="_blank" rel="noopener">Ver PDF de cotizacion</a>' : '') +
       '</article>';
     }
@@ -365,6 +376,7 @@
       '<div class="portal-kv"><b>Tiempo estimado</b><em>' + escapeHtml(quote.estimatedTime || "A coordinar") + '</em></div>' +
       '<div class="portal-kv"><b>Validez</b><em>' + escapeHtml(quote.validUntil || "15 dias") + '</em></div>' +
       '<div class="portal-kv"><b>Deposito</b><em>' + escapeHtml(quote.depositRequired || "A coordinar") + '</em></div>' +
+      renderVisitAdjustment(quote) +
       (quote.pdfUrl ? '<a class="portal-pdf-link" href="' + escapeAttr(quote.pdfUrl) + '" target="_blank" rel="noopener">Ver PDF de cotizacion</a>' : '') +
       '<div class="portal-payment-list">' + methods.map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join("") + '</div>' +
       '<p>' + escapeHtml(quote.paymentNotes || "La forma de pago se confirma antes de comenzar.") + '</p>' +

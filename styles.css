@@ -1355,6 +1355,32 @@ th {
   font-weight: 850;
 }
 
+.visit-adjustment-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(244, 197, 66, .42);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(244, 197, 66, .16), #fff);
+  padding: 14px;
+}
+
+.visit-adjustment-card > span {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.visit-adjustment-card > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.quote-edit-panel.quote-focus {
+  outline: 3px solid rgba(244, 197, 66, .55);
+  box-shadow: 0 0 0 8px rgba(244, 197, 66, .12);
+}
+
 .payment-choice-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3287,6 +3313,20 @@ th {
   font-style: normal;
   font-weight: 900;
   text-align: right;
+}
+
+.visit-adjustment-row {
+  border-color: rgba(244, 197, 66, .45);
+  background: rgba(244, 197, 66, .12);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.portal-adjustment-note {
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  background: #fffaf0;
+  padding: 10px 12px;
 }
 
 .portal-payment-list {

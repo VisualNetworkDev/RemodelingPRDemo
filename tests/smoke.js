@@ -108,6 +108,14 @@ for (const action of ["listRequests", "getRequest", "updateStatus", "addInternal
   if (!adminJs.includes(action)) throw new Error(`Admin app missing action ${action}`);
 }
 
+for (const marker of ["data-quote-from-schedule", "data-quote-open", "visitAdjustmentMode", "visitAdjustmentAmount", "visitAdjustmentNotes", "quoteEditPanel", "focusQuotePanel"]) {
+  if (!adminJs.includes(marker)) throw new Error(`Admin quote visit adjustment marker missing ${marker}`);
+}
+
+for (const marker of ["renderVisitAdjustment", "visitAdjustmentAmount", "visitAdjustmentNotes"]) {
+  if (!appJs.includes(marker)) throw new Error(`Public portal quote adjustment marker missing ${marker}`);
+}
+
 for (const marker of ["data-admin-panel", "data-admin-tab", "admin-mobile-dock", "scheduleForm", "scheduleWeek", "scheduleTable", "reportMetrics", "activityLogList", "galleryForm", "galleryPhotoInput", "galleryTable", "galleryAdminGrid", "paymentSettingsForm", "emailSettingsForm", "userForm", "usersTable", "operationsSettingsForm", "quoteConsole"]) {
   if (!adminHtml.includes(marker)) throw new Error(`Admin app missing operations marker ${marker}`);
 }
