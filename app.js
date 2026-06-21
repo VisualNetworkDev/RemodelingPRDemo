@@ -5,7 +5,7 @@
   var MAX_PHOTOS = 5;
   var MAX_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_PHOTO_MAX_LENGTH = 850000;
-  var READ_TIMEOUT_MS = 42000;
+  var READ_TIMEOUT_MS = 90000;
   var WRITE_TIMEOUT_MS = 75000;
   var PHOTO_TIMEOUT_MS = 120000;
   var submitting = false;
@@ -98,7 +98,7 @@
     var timeoutId = controller ? window.setTimeout(function () {
       controller.abort();
     }, timeoutMs) : null;
-    var readOnly = action === "listGallery" || action === "getServices" || action === "ping";
+    var readOnly = action === "listGallery" || action === "getServices" || action === "getPublicProject" || action === "ping";
     var requestUrl = readOnly
       ? url + "?action=" + encodeURIComponent(action) + "&payload=" + encodeURIComponent(JSON.stringify(payload || {})) + "&_=" + Date.now()
       : url;

@@ -181,7 +181,7 @@
   var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
   var MAX_GALLERY_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
-  var READ_TIMEOUT_MS = 42000;
+  var READ_TIMEOUT_MS = 90000;
   var WRITE_TIMEOUT_MS = 75000;
   var PHOTO_TIMEOUT_MS = 120000;
 
@@ -256,6 +256,9 @@
   var scheduleFormTitle = document.getElementById("scheduleFormTitle");
   var scheduleRequest = document.getElementById("scheduleRequest");
   var scheduleAssignee = document.getElementById("scheduleAssignee");
+  var scheduleHour = document.getElementById("scheduleHour");
+  var scheduleMinute = document.getElementById("scheduleMinute");
+  var schedulePeriod = document.getElementById("schedulePeriod");
   var clearScheduleFormBtn = document.getElementById("clearScheduleForm");
   var scheduleWeek = document.getElementById("scheduleWeek");
   var scheduleTable = document.getElementById("scheduleTable");
@@ -323,6 +326,23 @@
     localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(state.adminSettings));
   }
 
+  function persistAdminSettings(successMessage, logActionName, logDetail, renderCallback) {
+    saveAdminSettings();
+    if (typeof renderCallback === "function") renderCallback();
+    return sendAction("saveAdminSettings", { adminSettings: state.adminSettings }).then(requireOk).then(function (data) {
+      if (data.adminSettings) {
+        state.adminSettings = mergeAdminSettings(data.adminSettings);
+        saveAdminSettings();
+        if (typeof renderCallback === "function") renderCallback();
+      }
+      setAlert("success", successMessage);
+      if (logActionName) logActivity(logActionName, logDetail || "");
+      return data;
+    }).catch(function (error) {
+      setAlert("error", "Se guardo en este navegador, pero no se pudo sincronizar con el Sheet: " + error.message);
+    });
+  }
+
   function readStoredArray(key) {
     try {
       var value = JSON.parse(localStorage.getItem(key) || "[]");
@@ -374,6 +394,46 @@
     var hour = Number(match24[1]);
     var suffix = hour >= 12 ? "PM" : "AM";
     return (hour % 12 || 12) + ":" + match24[2] + " " + suffix;
+  }
+
+  function parseTime12Parts(value) {
+    var text = formatTime12(value || "9:00 AM");
+    var match = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return { hour: "9", minute: "00", period: "AM" };
+    return {
+      hour: String(Number(match[1]) || 9),
+      minute: pad2(Number(match[2]) || 0),
+      period: match[3].toUpperCase()
+    };
+  }
+
+  function syncScheduleTimeControl() {
+    if (!scheduleForm || !scheduleHour || !scheduleMinute || !schedulePeriod) return;
+    scheduleForm.elements.time.value = scheduleHour.value + ":" + scheduleMinute.value + " " + schedulePeriod.value;
+  }
+
+  function setScheduleTime(value) {
+    if (!scheduleForm || !scheduleHour || !scheduleMinute || !schedulePeriod) return;
+    var parts = parseTime12Parts(value);
+    scheduleHour.value = parts.hour;
+    scheduleMinute.value = parts.minute;
+    schedulePeriod.value = parts.period;
+    syncScheduleTimeControl();
+  }
+
+  function initScheduleTimeControl() {
+    if (!scheduleHour || !scheduleMinute || !schedulePeriod) return;
+    scheduleHour.innerHTML = Array.from({ length: 12 }, function (_, index) {
+      var hour = String(index + 1);
+      return '<option value="' + hour + '">' + hour + '</option>';
+    }).join("");
+    scheduleMinute.innerHTML = ["00", "15", "30", "45"].map(function (minute) {
+      return '<option value="' + minute + '">' + minute + '</option>';
+    }).join("");
+    [scheduleHour, scheduleMinute, schedulePeriod].forEach(function (node) {
+      node.addEventListener("change", syncScheduleTimeControl);
+    });
+    setScheduleTime("9:00 AM");
   }
 
   function parseIsoDate(value) {
@@ -615,7 +675,14 @@
     return [
       "ping",
       "getServices",
-      "listGallery"
+      "listGallery",
+      "getAdminBootstrap",
+      "getDashboardStats",
+      "listRequests",
+      "listSchedule",
+      "getRequest",
+      "getNotes",
+      "getHistory"
     ].indexOf(action) !== -1;
   }
 
@@ -693,6 +760,10 @@
       if (Array.isArray(data.statuses)) STATUSES = data.statuses;
       if (Array.isArray(data.services)) {
         SERVICES = data.services.map(function (service) { return service.name || service; });
+      }
+      if (data.adminSettings) {
+        state.adminSettings = mergeAdminSettings(data.adminSettings);
+        saveAdminSettings();
       }
       initFilters();
     }).catch(function () {
@@ -982,7 +1053,7 @@
     renderScheduleTable(events);
     if (scheduleForm && !scheduleForm.elements.date.value) {
       scheduleForm.elements.date.value = todayIso();
-      scheduleForm.elements.time.value = "09:00";
+      setScheduleTime("9:00 AM");
     }
   }
 
@@ -991,7 +1062,7 @@
     scheduleForm.reset();
     scheduleForm.elements.eventId.value = "";
     scheduleForm.elements.date.value = todayIso();
-    scheduleForm.elements.time.value = "09:00";
+    setScheduleTime("9:00 AM");
     if (scheduleFormTitle) scheduleFormTitle.textContent = "Programar evento";
     populateScheduleSelectors();
   }
@@ -1004,7 +1075,7 @@
     scheduleForm.elements.type.value = event.type || "Evaluacion";
     scheduleForm.elements.requestId.value = event.requestId || "";
     scheduleForm.elements.date.value = event.date || todayIso();
-    scheduleForm.elements.time.value = event.time || "09:00";
+    setScheduleTime(event.time || "9:00 AM");
     scheduleForm.elements.assignee.value = event.assignee || "";
     scheduleForm.elements.status.value = event.status || "Programado";
     scheduleForm.elements.priority.value = event.priority || "Normal";
@@ -1013,13 +1084,14 @@
   }
 
   function schedulePayload() {
+    syncScheduleTimeControl();
     var data = new FormData(scheduleForm);
     return {
       id: String(data.get("eventId") || "").trim() || nextId("SCH", state.schedule),
       type: String(data.get("type") || "Evaluacion"),
       requestId: String(data.get("requestId") || "").trim(),
       date: String(data.get("date") || "").trim(),
-      time: String(data.get("time") || "09:00").trim(),
+      time: formatTime12(data.get("time") || "9:00 AM"),
       assignee: String(data.get("assignee") || "Equipo").trim(),
       status: String(data.get("status") || "Programado"),
       priority: String(data.get("priority") || "Normal"),
@@ -1805,11 +1877,34 @@
     var options = String(raw).split("|").map(function (item) {
       return item.trim();
     }).filter(Boolean);
-    return options.length ? options : ["ATH Movil", "Zelle", "Transferencia bancaria"];
+    return options.length ? options : activePaymentMethods();
+  }
+
+  function activePaymentMethods() {
+    var methods = state.adminSettings && state.adminSettings.payments && Array.isArray(state.adminSettings.payments.methods)
+      ? state.adminSettings.payments.methods
+      : [];
+    var active = methods.filter(function (item) {
+      return item && item.status !== "Pausado" && String(item.name || "").trim();
+    }).map(function (item) {
+      return String(item.name || "").trim();
+    });
+    return active.length ? active : ["ATH Movil", "Zelle", "Transferencia bancaria"];
   }
 
   function paymentChecked(quote, option) {
     return quotePaymentOptions(quote).indexOf(option) !== -1 ? " checked" : "";
+  }
+
+  function paymentChoicesHtml(quote) {
+    var selected = quotePaymentOptions(quote);
+    var methods = activePaymentMethods().slice();
+    selected.forEach(function (option) {
+      if (methods.indexOf(option) === -1) methods.push(option);
+    });
+    return methods.map(function (option) {
+      return '<label><input name="paymentOptions" type="checkbox" value="' + esc(option) + '"' + paymentChecked(quote, option) + '> ' + esc(option) + '</label>';
+    }).join("");
   }
 
   function quoteVisitAdjustmentMode(quote) {
@@ -1826,6 +1921,8 @@
   function renderQuotePanel(quote) {
     var request = state.detail.request;
     var visitMode = quoteVisitAdjustmentMode(quote);
+    var paymentSettings = state.adminSettings.payments || {};
+    var operationsSettings = state.adminSettings.operations || {};
     return '<section id="quoteEditPanel" class="detail-panel quote-edit-panel">' +
       '<h3>Cotizacion</h3>' +
       '<div class="quote-media-preview">' +
@@ -1841,7 +1938,7 @@
           '<label>Descuento<input name="discount" type="number" min="0" step="0.01" value="' + esc(quote.Descuento || 0) + '"></label>' +
           '<label>Tax opcional<input name="tax" type="number" min="0" step="0.01" value="' + esc(quote.Tax || 0) + '"></label>' +
           '<label>Tiempo estimado<input name="estimatedTime" value="' + esc(quote.TiempoEstimado || "") + '"></label>' +
-          '<label>Validez<input name="validUntil" value="' + esc(quote.Validez || "15 dias") + '"></label>' +
+          '<label>Validez<input name="validUntil" value="' + esc(quote.Validez || operationsSettings.quoteValidity || "15 dias") + '"></label>' +
           '<div class="wide visit-adjustment-card">' +
             '<span>Ajuste despues de visitar el local</span>' +
             '<p>Usalo si en la cita aparece trabajo extra o si el alcance real es menor que lo enviado por el cliente.</p>' +
@@ -1859,15 +1956,11 @@
           '<div class="wide quote-option-block">' +
             '<span>Opciones de pago para enviar con la cotizacion</span>' +
             '<div class="payment-choice-grid">' +
-              '<label><input name="paymentOptions" type="checkbox" value="ATH Movil"' + paymentChecked(quote, "ATH Movil") + '> ATH Movil</label>' +
-              '<label><input name="paymentOptions" type="checkbox" value="Zelle"' + paymentChecked(quote, "Zelle") + '> Zelle</label>' +
-              '<label><input name="paymentOptions" type="checkbox" value="Transferencia bancaria"' + paymentChecked(quote, "Transferencia bancaria") + '> Transferencia bancaria</label>' +
-              '<label><input name="paymentOptions" type="checkbox" value="Cheque"' + paymentChecked(quote, "Cheque") + '> Cheque</label>' +
-              '<label><input name="paymentOptions" type="checkbox" value="Efectivo"' + paymentChecked(quote, "Efectivo") + '> Efectivo</label>' +
+              paymentChoicesHtml(quote) +
             '</div>' +
           '</div>' +
-          '<label>Deposito requerido<input name="depositRequired" value="' + esc(quote.DepositoRequerido || "A coordinar con la duena") + '"></label>' +
-          '<label class="wide">Notas de pago<textarea name="paymentNotes" rows="3">' + esc(quote.NotasPago || "La duena confirma la forma de pago disponible, deposito y balance antes de comenzar.") + '</textarea></label>' +
+          '<label>Deposito requerido<input name="depositRequired" value="' + esc(quote.DepositoRequerido || paymentSettings.defaultDeposit || "A coordinar con la duena") + '"></label>' +
+          '<label class="wide">Notas de pago<textarea name="paymentNotes" rows="3">' + esc(quote.NotasPago || paymentSettings.paymentInstructions || "La duena confirma la forma de pago disponible, deposito y balance antes de comenzar.") + '</textarea></label>' +
         '</div>' +
         '<div class="quote-total"><span>Total automatico</span><strong id="quoteTotal">$0.00</strong></div>' +
         (quote.PdfUrl ? '<p class="quote-pdf-link"><a href="' + esc(quote.PdfUrl) + '" target="_blank" rel="noopener">Abrir PDF generado</a></p>' : '') +
@@ -2339,10 +2432,7 @@
         state.adminSettings.payments.paymentName = String(data.get("paymentName") || "").trim();
         state.adminSettings.payments.paymentInstructions = String(data.get("paymentInstructions") || "").trim();
         state.adminSettings.payments.confirmationNote = String(data.get("confirmationNote") || "").trim();
-        saveAdminSettings();
-        renderPaymentSettings();
-        setAlert("success", "Configuracion de pagos guardada.");
-        logActivity("Pagos guardados", "Se actualizaron deposito, instrucciones y confirmacion.");
+        persistAdminSettings("Configuracion de pagos guardada.", "Pagos guardados", "Se actualizaron deposito, instrucciones y confirmacion.", renderPaymentSettings);
       });
     }
 
@@ -2359,10 +2449,7 @@
           details: "Metodo agregado para futuras cotizaciones."
         });
         addPaymentMethodForm.reset();
-        saveAdminSettings();
-        renderPaymentSettings();
-        setAlert("success", "Metodo de pago agregado.");
-        logActivity("Metodo de pago", name + " fue agregado.");
+        persistAdminSettings("Metodo de pago agregado.", "Metodo de pago", name + " fue agregado.", renderPaymentSettings);
       });
     }
 
@@ -2374,19 +2461,19 @@
         var methods = state.adminSettings.payments.methods;
         var method = methods.filter(function (entry) { return entry.id === methodId; })[0];
         if (!method) return;
+        var message = "";
         if (event.target.closest("[data-delete-payment]")) {
           state.adminSettings.payments.methods = methods.filter(function (entry) { return entry.id !== methodId; });
-          setAlert("success", "Metodo de pago borrado.");
+          message = "Metodo de pago borrado.";
           logActivity("Metodo de pago borrado", method.name + " fue eliminado.");
         } else if (event.target.closest("[data-toggle-payment]")) {
           method.status = method.status === "Activo" ? "Pausado" : "Activo";
-          setAlert("success", "Metodo de pago actualizado.");
+          message = "Metodo de pago actualizado.";
           logActivity("Metodo de pago actualizado", method.name + " cambio a " + method.status + ".");
         } else {
           return;
         }
-        saveAdminSettings();
-        renderPaymentSettings();
+        persistAdminSettings(message, null, "", renderPaymentSettings);
       });
     }
   }
@@ -2401,10 +2488,7 @@
       state.adminSettings.emails.confirmationSubject = String(data.get("confirmationSubject") || "").trim();
       state.adminSettings.emails.quoteSubject = String(data.get("quoteSubject") || "").trim();
       state.adminSettings.emails.emailSignature = String(data.get("emailSignature") || "").trim();
-      saveAdminSettings();
-      renderEmailSettings();
-      setAlert("success", "Configuracion de correos guardada.");
-      logActivity("Correos guardados", "Se actualizaron asuntos, firma y correo de respuesta.");
+      persistAdminSettings("Configuracion de correos guardada.", "Correos guardados", "Se actualizaron asuntos, firma y correo de respuesta.", renderEmailSettings);
     });
   }
 
@@ -2431,12 +2515,11 @@
         } else {
           state.adminSettings.users.push(user);
         }
-        saveAdminSettings();
         clearUserForm();
-        renderUsers();
-        renderSchedule();
-        setAlert("success", "Usuario guardado.");
-        logActivity("Usuario guardado", user.name + " fue guardado como " + user.role + ".");
+        persistAdminSettings("Usuario guardado.", "Usuario guardado", user.name + " fue guardado como " + user.role + ".", function () {
+          renderUsers();
+          renderSchedule();
+        });
       });
     }
 
@@ -2452,21 +2535,23 @@
           fillUserForm(userId);
           return;
         }
+        var message = "";
         if (event.target.closest("[data-toggle-user]")) {
           user.status = user.status === "Activo" ? "Pausado" : "Activo";
-          setAlert("success", "Usuario actualizado.");
+          message = "Usuario actualizado.";
           logActivity("Usuario actualizado", user.name + " cambio a " + user.status + ".");
         } else if (event.target.closest("[data-delete-user]")) {
           state.adminSettings.users = users.filter(function (entry) { return entry.id !== userId; });
           if (userForm && userForm.elements.userId.value === userId) clearUserForm();
-          setAlert("success", "Usuario borrado.");
+          message = "Usuario borrado.";
           logActivity("Usuario borrado", user.name + " fue eliminado.");
         } else {
           return;
         }
-        saveAdminSettings();
-        renderUsers();
-        renderSchedule();
+        persistAdminSettings(message, null, "", function () {
+          renderUsers();
+          renderSchedule();
+        });
       });
     }
   }
@@ -2481,10 +2566,7 @@
       state.adminSettings.operations.serviceArea = String(data.get("serviceArea") || "").trim();
       state.adminSettings.operations.quoteValidity = String(data.get("quoteValidity") || "").trim();
       state.adminSettings.operations.processNote = String(data.get("processNote") || "").trim();
-      saveAdminSettings();
-      renderOperationsSettings();
-      setAlert("success", "Ajustes operativos guardados.");
-      logActivity("Ajustes guardados", "Se actualizo la informacion operativa del negocio.");
+      persistAdminSettings("Ajustes operativos guardados.", "Ajustes guardados", "Se actualizo la informacion operativa del negocio.", renderOperationsSettings);
     });
   }
 
@@ -2539,6 +2621,7 @@
     bindMenu();
     bindAdminNavigation();
     initFilters();
+    initScheduleTimeControl();
     bindEvents();
     bindAdminTools();
     renderDashboardLoading();

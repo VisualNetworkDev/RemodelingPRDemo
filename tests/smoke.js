@@ -161,8 +161,12 @@ if ((adminHtml.match(/data-admin-panel=/g) || []).length < 10) {
   throw new Error("Admin must use separated app sections for dashboard, requests, quotes, schedule, gallery, reports, payments, emails, users, and settings.");
 }
 
-for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "renderApprovalPanel", "renderProjectPhotoPanel", "projectPhotoForm", "projectPhotoInput", "generateQuotePdfBtn", "quote-pdf-link", "listSchedule", "upsertSchedule", "deleteSchedule", "approval-panel", "data-delete-gallery", "data-delete-user", "data-delete-payment"]) {
+for (const marker of ["bindAdminNavigation", "renderSchedule", "bindScheduleTools", "renderReports", "bindReportTools", "exportReportCsv", "exportScheduleCsv", "logActivity", "renderGalleryManager", "bindGalleryTools", "renderPaymentSettings", "renderEmailSettings", "renderUsers", "renderApprovalPanel", "renderProjectPhotoPanel", "projectPhotoForm", "projectPhotoInput", "generateQuotePdfBtn", "quote-pdf-link", "listSchedule", "upsertSchedule", "deleteSchedule", "approval-panel", "data-delete-gallery", "data-delete-user", "data-delete-payment", "persistAdminSettings", "saveAdminSettings", "activePaymentMethods", "paymentChoicesHtml", "initScheduleTimeControl"]) {
   if (!adminJs.includes(marker)) throw new Error(`Admin logic missing management marker ${marker}`);
+}
+
+if (!adminHtml.includes("time-12-control") || adminHtml.includes('type="time"')) {
+  throw new Error("Admin agenda must use a 12-hour time control, not the browser 24-hour time input.");
 }
 
 for (const marker of ["optimizeImageDataUrl", "readGalleryPhoto", "OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH", "mimeType: \"image/jpeg\""]) {
@@ -170,8 +174,16 @@ for (const marker of ["optimizeImageDataUrl", "readGalleryPhoto", "OPTIMIZED_GAL
 }
 
 if (hasBackend) {
-  for (const action of ["submitRequest", "addProjectPhoto", "getPublicProject", "approveQuote", "generateQuotePdf", "getAdminBootstrap", "listSchedule", "upsertSchedule", "deleteSchedule", "listRequests", "updateStatus", "addInternalNote", "createQuote", "sendQuoteEmail", "resendCustomerConfirmation", "setupDemo", "listGallery", "upsertGalleryItem", "deleteGalleryItem"]) {
+  for (const action of ["submitRequest", "addProjectPhoto", "getPublicProject", "approveQuote", "generateQuotePdf", "getAdminBootstrap", "saveAdminSettings", "listSchedule", "upsertSchedule", "deleteSchedule", "listRequests", "updateStatus", "addInternalNote", "createQuote", "sendQuoteEmail", "resendCustomerConfirmation", "setupDemo", "listGallery", "upsertGalleryItem", "deleteGalleryItem"]) {
     if (!backend.includes(action)) throw new Error(`Backend missing ${action}`);
+  }
+
+  for (const field of ["adminSettings: getAdminSettings_", "saveAdminSettings_", "admin_settings_json"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing persistent admin settings support ${field}`);
+  }
+
+  for (const field of ["trashDriveFilesFromGalleryRow_", "extractDriveFileIds_", "DriveApp.getFileById(fileId).setTrashed(true)"]) {
+    if (!backend.includes(field)) throw new Error(`Backend missing gallery Drive cleanup support ${field}`);
   }
 
   for (const marker of ["CacheService", "clearRuntimeCaches_", "runtimeCacheKey_", "calculateRequestStats_", "scheduleEventsFromRows_"]) {

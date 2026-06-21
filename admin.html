@@ -228,8 +228,17 @@
             <label>Fecha
               <input name="date" type="date" required>
             </label>
-            <label>Hora
-              <input name="time" type="time" required>
+            <label class="wide">Hora
+              <div class="time-12-control" data-time12-control>
+                <input name="time" type="hidden" value="9:00 AM" required>
+                <select id="scheduleHour" aria-label="Hora"></select>
+                <span>:</span>
+                <select id="scheduleMinute" aria-label="Minutos"></select>
+                <select id="schedulePeriod" aria-label="AM o PM">
+                  <option>AM</option>
+                  <option>PM</option>
+                </select>
+              </div>
             </label>
             <label>Responsable
               <select id="scheduleAssignee" name="assignee"></select>
