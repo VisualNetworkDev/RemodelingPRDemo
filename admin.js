@@ -181,7 +181,7 @@
   var ADMIN_ACTIVITY_LOG_KEY = "atlas-remodeling-activity-log-v1";
   var MAX_GALLERY_PHOTO_BYTES = 60 * 1024 * 1024;
   var OPTIMIZED_GALLERY_PHOTO_MAX_LENGTH = 950000;
-  var READ_TIMEOUT_MS = 90000;
+  var READ_TIMEOUT_MS = 30000;
   var WRITE_TIMEOUT_MS = 75000;
   var PHOTO_TIMEOUT_MS = 120000;
 
@@ -778,6 +778,10 @@
       if (Array.isArray(data.statuses)) STATUSES = data.statuses;
       if (Array.isArray(data.services)) {
         SERVICES = data.services.map(function (service) { return service.name || service; });
+      }
+      if (data.adminSettings) {
+        state.adminSettings = mergeAdminSettings(data.adminSettings);
+        saveAdminSettings();
       }
       initFilters();
       state.requests = Array.isArray(data.requests) && data.requests.length ? data.requests : DEMO_REQUESTS.slice();
